@@ -5,7 +5,7 @@ from pathlib import Path
 import click
 
 from . import audio, launchctl, notify
-from .audio import FFMPEG
+from .ffmpeg import ffmpeg_available
 from .paths import ensure_outdir
 
 PLIST_LABEL = "com.josephcourtney.bingbong"
@@ -22,7 +22,7 @@ def main():
 def build():
     """Build composite chime/quarter audio files."""
     try:
-        if not FFMPEG:
+        if not ffmpeg_available():
             click.echo("Error: ffmpeg is not available on this system.")
             return
         audio.build_all()
@@ -81,7 +81,7 @@ def status():
 
 @main.command()
 @click.option("--clear", is_flag=True, help="Clear log files instead of displaying them.")
-def logs(clear: bool) -> None:
+def logs(*, clear: bool) -> None:
     """Display or clear the latest logs for the launchctl job."""
     for log in [STDOUT_LOG, STDERR_LOG]:
         click.echo(f"\n--- {log} ---")

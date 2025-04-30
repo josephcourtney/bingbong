@@ -33,7 +33,7 @@ def patch_play_file(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def patch_ffmpeg(monkeypatch):
-    monkeypatch.setattr("bingbong.audio.FFMPEG", "/usr/bin/ffmpeg")  # ensure FFMPEG is not None
+    monkeypatch.setattr("bingbong.ffmpeg.FFMPEG", "/usr/bin/ffmpeg")  # ensure FFMPEG is not None
 
     def fake_run(args, **_kwargs):
         # Detect silence creation

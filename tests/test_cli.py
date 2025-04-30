@@ -85,6 +85,7 @@ def test_cli_logs(tmp_path, monkeypatch):
 
 
 def test_cli_build_missing_ffmpeg(monkeypatch):
-    monkeypatch.setattr("bingbong.audio.FFMPEG", None)
+    monkeypatch.setattr("bingbong.cli.ffmpeg_available", lambda: False)
+    monkeypatch.setattr("bingbong.audio.build_all", lambda: None)
     result = CliRunner().invoke(main, ["build"])
     assert "ffmpeg is not available" in result.output
