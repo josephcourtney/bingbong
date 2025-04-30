@@ -56,3 +56,14 @@ def test_build_all_creates_everything(tmp_path):
         assert (tmp_path / f"hour_{hour}.wav").exists()
 
     assert (tmp_path / "silence.wav").exists()
+
+
+def test_play_file_success(monkeypatch, tmp_path):
+    dummy_wav = tmp_path / "good.wav"
+    dummy_wav.write_bytes(b"\0" * 44)  # fake minimal WAV header
+
+    monkeypatch.setattr("bingbong.audio.sf.read", lambda *_a, **_k: ([0.0], 44100))
+    monkeypatch.setattr("bingbong.audio.sd.play", lambda _data, _fs: None)
+    monkeypatch.setattr("bingbong.audio.sd.wait", lambda: None)
+
+    audio.play_file(dummy_wav)

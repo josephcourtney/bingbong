@@ -34,3 +34,15 @@ def test_make_silence_creates_file(tmp_path):
     audio.make_silence(tmp_path)
     silence_path = tmp_path / "silence.wav"
     assert silence_path.exists()
+
+
+def test_concat_runtime_error(monkeypatch, tmp_path):
+    monkeypatch.setattr("bingbong.ffmpeg.FFMPEG", None)
+    with pytest.raises(RuntimeError, match="ffmpeg is not available"):
+        ffmpeg.concat(["a.wav", "b.wav"], tmp_path / "out.wav")
+
+
+def test_make_silence_missing_ffmpeg(monkeypatch, tmp_path):
+    monkeypatch.setattr("bingbong.ffmpeg.FFMPEG", None)
+    with pytest.raises(RuntimeError, match="ffmpeg is not available"):
+        ffmpeg.make_silence(tmp_path)
