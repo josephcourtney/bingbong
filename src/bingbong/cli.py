@@ -1,16 +1,16 @@
 import shutil
-import subprocess
+import subprocess  # noqa: S404
 from pathlib import Path
 
 import click
 
 from . import audio, launchctl, notify
 from .audio import FFMPEG
-from .paths import DEFAULT_OUTDIR
+from .paths import ensure_outdir
 
 PLIST_LABEL = "com.josephcourtney.bingbong"
-STDOUT_LOG = Path("/tmp/bingbong.out")
-STDERR_LOG = Path("/tmp/bingbong.err")
+STDOUT_LOG = Path("/tmp/bingbong.out")  # noqa: S108
+STDERR_LOG = Path("/tmp/bingbong.err")  # noqa: S108
 
 
 @click.group()
@@ -30,9 +30,6 @@ def build():
     except RuntimeError as err:
         click.echo(str(err))
 
-    audio.build_all()
-    click.echo("Built chime and quarter audio files.")
-
 
 @main.command()
 def install():
@@ -51,9 +48,10 @@ def uninstall():
 @main.command()
 def clean():
     """Delete generated audio files."""
-    if DEFAULT_OUTDIR.exists():
-        shutil.rmtree(DEFAULT_OUTDIR)
-        click.echo(f"Removed: {DEFAULT_OUTDIR}")
+    outdir = ensure_outdir()
+    if outdir.exists():
+        shutil.rmtree(outdir)
+        click.echo(f"Removed: {outdir}")
     else:
         click.echo("No generated files found.")
 
@@ -68,8 +66,9 @@ def chime():
 @main.command()
 def status():
     """Check whether the launchctl job is currently loaded."""
-    result = subprocess.run(
-        ["/bin/launchctl", "list"],
+    launchctl_path = shutil.which("launchctl")
+    result = subprocess.run(  # noqa: S603
+        [launchctl_path, "list"],
         capture_output=True,
         text=True,
         check=False,

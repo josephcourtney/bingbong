@@ -4,23 +4,25 @@ import sys
 from click.testing import CliRunner
 
 from bingbong.cli import main
-from bingbong.paths import DEFAULT_OUTDIR
 
 
 def test_import():
     assert main
 
 
-def test_cli_build_and_clean():
+def test_cli_build_and_clean(monkeypatch, tmp_path):
+    # Patch ensure_outdir to point to temp dir
+    monkeypatch.setattr("bingbong.cli.ensure_outdir", lambda: tmp_path)
+
     runner = CliRunner()
 
     result = runner.invoke(main, ["build"])
     assert result.exit_code == 0
-    assert DEFAULT_OUTDIR.exists()
+    assert tmp_path.exists()
 
     result = runner.invoke(main, ["clean"])
     assert result.exit_code == 0
-    assert not DEFAULT_OUTDIR.exists()
+    assert not tmp_path.exists()
 
 
 def test_cli_install_and_uninstall(monkeypatch):
@@ -56,8 +58,7 @@ def test_cli_clean_when_empty(monkeypatch, tmp_path):
         for child in tmp_path.iterdir():
             child.unlink()
         tmp_path.rmdir()
-
-    monkeypatch.setattr("bingbong.cli.DEFAULT_OUTDIR", tmp_path)
+    monkeypatch.setattr("bingbong.cli.ensure_outdir", lambda: tmp_path)
     result = CliRunner().invoke(main, ["clean"])
     assert "No generated files found." in result.output
 

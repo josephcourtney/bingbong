@@ -5,6 +5,7 @@ from pathlib import Path
 
 from . import audio
 from .audio import build_all
+from .paths import ensure_outdir
 
 
 def nearest_quarter(minute: int) -> int:
@@ -18,10 +19,7 @@ def resolve_chime_path(hour: int, nearest: int, outdir: Path | None = None) -> P
     If outdir is None, import and use the current DEFAULT_OUTDIR.
     """
     if outdir is None:
-        # dynamic import so tests that monkeypatch DEFAULT_OUTDIR take effect
-        from .paths import DEFAULT_OUTDIR  # noqa: PLC0415
-
-        outdir = DEFAULT_OUTDIR
+        outdir = ensure_outdir()
 
     if nearest == 0:
         # On the hour, advance to the next hour (with wraparound)
@@ -37,10 +35,7 @@ def notify_time(outdir: Path | None = None) -> None:
     If the needed file is missing, attempt to rebuild all chime files.
     """
     if outdir is None:
-        # dynamic import so tests that monkeypatch DEFAULT_OUTDIR take effect
-        from .paths import DEFAULT_OUTDIR  # noqa: PLC0415
-
-        outdir = DEFAULT_OUTDIR
+        outdir = ensure_outdir()
 
     now = datetime.now().astimezone()
     hour = now.hour % 12 or 12

@@ -1,7 +1,7 @@
 # =================================== project ====================================
 [project]
   name = "bingbong"
-  version = "0.0.15"
+  version = "0.0.16"
   description = "bing, bong!"
   readme = "README.md"
   authors = [{ name = "", email = "" }]

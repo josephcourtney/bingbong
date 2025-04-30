@@ -7,7 +7,7 @@ from pathlib import Path
 import sounddevice as sd
 import soundfile as sf
 
-from .paths import DEFAULT_OUTDIR
+from .paths import ensure_outdir
 
 # --- Constants ---
 DATA = files("bingbong.data")
@@ -15,8 +15,6 @@ POP = str(DATA / "pop.wav")
 CHIME = str(DATA / "chime.wav")
 POPS_PER_CLUSTER = 3
 FFMPEG = shutil.which("ffmpeg")
-
-POPS_PER_CLUSTER = 3
 
 
 def play_file(path: Path) -> None:
@@ -28,9 +26,10 @@ def play_file(path: Path) -> None:
         print(f"Failed to play audio: {err}")
 
 
-def concat(input_files: Sequence[str], output: Path, outdir: Path = DEFAULT_OUTDIR) -> None:
+def concat(input_files: Sequence[str], output: Path, outdir: Path | None = None) -> None:
     """Concatenate .wav files into one using ffmpeg."""
-    outdir.mkdir(parents=True, exist_ok=True)
+    if outdir is None:
+        outdir = ensure_outdir()
     list_path = outdir / "temp_list.txt"
     with list_path.open("w", encoding="utf-8") as f:
         f.writelines(f"file '{file}'\n" for file in input_files)
@@ -59,26 +58,32 @@ def concat(input_files: Sequence[str], output: Path, outdir: Path = DEFAULT_OUTD
         list_path.unlink(missing_ok=True)
 
 
-def make_quarters(outdir: Path = DEFAULT_OUTDIR) -> None:
+def make_quarters(outdir: Path | None = None) -> None:
+    if outdir is None:
+        outdir = ensure_outdir()
     for n in range(1, 4):
         pops = [POP] * n
         output = outdir / f"quarter_{n}.wav"
         concat(pops, output, outdir=outdir)
 
 
-def make_hours(outdir: Path = DEFAULT_OUTDIR) -> None:
+def make_hours(outdir: Path | None = None) -> None:
+    if outdir is None:
+        outdir = ensure_outdir()
     for hour in range(1, 13):
         clusters = [POP] * (hour - 1)
         output = outdir / f"hour_{hour}.wav"
         concat([CHIME, *clusters], output, outdir=outdir)
 
 
-def make_silence(outdir: Path = DEFAULT_OUTDIR, duration: int = 1) -> None:
+def make_silence(outdir: Path | None = None, duration: int = 1) -> None:
+    if outdir is None:
+        outdir = ensure_outdir()
     silence_path = outdir / "silence.wav"
     if not FFMPEG:
         msg = "ffmpeg is not available on this system."
         raise RuntimeError(msg)
-    subprocess.run(
+    subprocess.run(  # noqa: S603
         [
             FFMPEG,
             "-y",
@@ -94,7 +99,7 @@ def make_silence(outdir: Path = DEFAULT_OUTDIR, duration: int = 1) -> None:
     )
 
 
-def build_all(outdir: Path = DEFAULT_OUTDIR) -> None:
+def build_all(outdir: Path | None = None) -> None:
     make_silence(outdir)
     make_quarters(outdir)
     make_hours(outdir)
