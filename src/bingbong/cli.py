@@ -80,11 +80,16 @@ def status():
 
 
 @main.command()
-def logs():
-    """Display the latest logs for the launchctl job."""
+@click.option("--clear", is_flag=True, help="Clear log files instead of displaying them.")
+def logs(clear: bool) -> None:
+    """Display or clear the latest logs for the launchctl job."""
     for log in [STDOUT_LOG, STDERR_LOG]:
         click.echo(f"\n--- {log} ---")
         if log.exists():
-            click.echo(log.read_text())
+            if clear:
+                log.unlink()
+                click.echo("Cleared.")
+            else:
+                click.echo(log.read_text())
         else:
             click.echo("No log found.")
