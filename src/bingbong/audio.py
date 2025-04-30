@@ -73,9 +73,22 @@ def make_hours(outdir: Path = DEFAULT_OUTDIR) -> None:
         concat([CHIME, *clusters], output, outdir=outdir)
 
 
-def make_silence(outdir: Path = DEFAULT_OUTDIR) -> None:
+def make_silence(outdir: Path = DEFAULT_OUTDIR, duration: int = 1) -> None:
     silence_path = outdir / "silence.wav"
-    subprocess.run([FFMPEG, "-y", "-f", "lavfi", "-i", "anullsrc", str(silence_path)], check=True)  # noqa: S603
+    subprocess.run(
+        [
+            FFMPEG,
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "anullsrc=r=44100:cl=stereo",
+            "-t",
+            str(duration),  # <-- ADD THIS
+            str(silence_path),
+        ],
+        check=True,
+    )  # noqa: S603
 
 
 def build_all(outdir: Path = DEFAULT_OUTDIR) -> None:

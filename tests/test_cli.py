@@ -60,3 +60,24 @@ def test_cli_clean_when_empty(monkeypatch, tmp_path):
     monkeypatch.setattr("bingbong.cli.DEFAULT_OUTDIR", tmp_path)
     result = CliRunner().invoke(main, ["clean"])
     assert "No generated files found." in result.output
+
+
+def test_cli_status(monkeypatch):
+    monkeypatch.setattr(
+        "subprocess.run",
+        lambda *_, **__: subprocess.CompletedProcess([], 0, stdout="com.josephcourtney.bingbong", stderr=""),
+    )
+    result = CliRunner().invoke(main, ["status"])
+    assert "Service is loaded" in result.output
+
+
+def test_cli_logs(tmp_path, monkeypatch):
+    out = tmp_path / "bingbong.out"
+    err = tmp_path / "bingbong.err"
+    out.write_text("stdout log")
+    err.write_text("stderr log")
+    monkeypatch.setattr("bingbong.cli.STDOUT_LOG", out)
+    monkeypatch.setattr("bingbong.cli.STDERR_LOG", err)
+    result = CliRunner().invoke(main, ["logs"])
+    assert "stdout log" in result.output
+    assert "stderr log" in result.output
