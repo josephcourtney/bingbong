@@ -1,11 +1,11 @@
 import shutil
 import subprocess  # noqa: S404
-import wave
 from collections.abc import Sequence
 from importlib.resources import files
 from pathlib import Path
 
-import simpleaudio as sa
+import sounddevice as sd
+import soundfile as sf
 
 from .paths import OUTDIR
 
@@ -19,16 +19,11 @@ FFMPEG = shutil.which("ffmpeg")
 
 
 def play_file(path: Path) -> None:
-    """Play a .wav file using simpleaudio."""
-    if not path.exists():
-        print(f"Warning: {path} does not exist.")
-        return
-
     try:
-        wave_obj = sa.WaveObject.from_wave_file(str(path))
-        play_obj = wave_obj.play()
-        play_obj.wait_done()
-    except (wave.Error, OSError) as err:
+        data, fs = sf.read(str(path), dtype="float32")
+        sd.play(data, fs)
+        sd.wait()
+    except (sf.LibsndfileError, OSError, RuntimeError) as err:
         print(f"Failed to play audio: {err}")
 
 
@@ -98,6 +93,7 @@ def make_silence() -> None:
 
 
 def build_all() -> None:
+    OUTDIR.mkdir(parents=True, exist_ok=True)
     make_silence()
     make_quarters()
     make_hours()
