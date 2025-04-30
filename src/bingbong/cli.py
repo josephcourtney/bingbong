@@ -1,12 +1,12 @@
 import shutil
+import subprocess
+from pathlib import Path
 
 import click
 
 from . import audio, launchctl, notify
+from .audio import FFMPEG
 from .paths import DEFAULT_OUTDIR
-
-import subprocess
-from pathlib import Path
 
 PLIST_LABEL = "com.josephcourtney.bingbong"
 STDOUT_LOG = Path("/tmp/bingbong.out")
@@ -21,6 +21,15 @@ def main():
 @main.command()
 def build():
     """Build composite chime/quarter audio files."""
+    try:
+        if not FFMPEG:
+            click.echo("Error: ffmpeg is not available on this system.")
+            return
+        audio.build_all()
+        click.echo("Built chime and quarter audio files.")
+    except RuntimeError as err:
+        click.echo(str(err))
+
     audio.build_all()
     click.echo("Built chime and quarter audio files.")
 
@@ -63,6 +72,7 @@ def status():
         ["/bin/launchctl", "list"],
         capture_output=True,
         text=True,
+        check=False,
     )
     if PLIST_LABEL in result.stdout:
         click.echo("✅ Service is loaded.")

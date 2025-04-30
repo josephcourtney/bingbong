@@ -81,3 +81,9 @@ def test_cli_logs(tmp_path, monkeypatch):
     result = CliRunner().invoke(main, ["logs"])
     assert "stdout log" in result.output
     assert "stderr log" in result.output
+
+
+def test_cli_build_missing_ffmpeg(monkeypatch):
+    monkeypatch.setattr("bingbong.audio.FFMPEG", None)
+    result = CliRunner().invoke(main, ["build"])
+    assert "ffmpeg is not available" in result.output

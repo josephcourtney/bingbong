@@ -33,9 +33,11 @@ def patch_play_file(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def patch_ffmpeg(monkeypatch):
+    monkeypatch.setattr("bingbong.audio.FFMPEG", "/usr/bin/ffmpeg")  # ensure FFMPEG is not None
+
     def fake_run(args, **_kwargs):
         # Detect silence creation
-        if "anullsrc" in args:
+        if any("anullsrc" in arg for arg in args):
             path = Path(args[-1])
             path.parent.mkdir(parents=True, exist_ok=True)
             path.touch()

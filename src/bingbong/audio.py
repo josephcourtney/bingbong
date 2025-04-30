@@ -75,6 +75,9 @@ def make_hours(outdir: Path = DEFAULT_OUTDIR) -> None:
 
 def make_silence(outdir: Path = DEFAULT_OUTDIR, duration: int = 1) -> None:
     silence_path = outdir / "silence.wav"
+    if not FFMPEG:
+        msg = "ffmpeg is not available on this system."
+        raise RuntimeError(msg)
     subprocess.run(
         [
             FFMPEG,
@@ -88,7 +91,7 @@ def make_silence(outdir: Path = DEFAULT_OUTDIR, duration: int = 1) -> None:
             str(silence_path),
         ],
         check=True,
-    )  # noqa: S603
+    )
 
 
 def build_all(outdir: Path = DEFAULT_OUTDIR) -> None:
