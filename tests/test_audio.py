@@ -1,4 +1,5 @@
 from pathlib import Path
+from wave import Error as WaveError
 
 import simpleaudio as sa
 
@@ -17,7 +18,7 @@ def test_play_file_exception(monkeypatch, tmp_path, capsys):
 
     def fake_from_wave_file(_):
         msg = "bad format"
-        raise RuntimeError(msg)
+        raise WaveError(msg)
 
     monkeypatch.setattr(sa.WaveObject, "from_wave_file", fake_from_wave_file)
     play_file(dummy_file)

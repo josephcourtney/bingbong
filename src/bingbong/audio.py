@@ -1,5 +1,6 @@
-import wave
+import shutil
 import subprocess  # noqa: S404
+import wave
 from collections.abc import Sequence
 from importlib.resources import files
 from pathlib import Path
@@ -14,6 +15,7 @@ POP = str(DATA / "pop.wav")
 CHIME = str(DATA / "chime.wav")
 SILENCE = str(OUTDIR / "silence.wav")
 POPS_PER_CLUSTER = 3
+FFMPEG = shutil.which("ffmpeg")
 
 
 def play_file(path: Path) -> None:
@@ -39,7 +41,7 @@ def concat(input_files: Sequence[str], output: Path) -> None:
     try:
         subprocess.run(  # noqa: S603
             [
-                "/opt/homebrew/bin/ffmpeg",
+                FFMPEG,
                 "-y",
                 "-f",
                 "concat",
@@ -81,7 +83,7 @@ def make_hours() -> None:
 def make_silence() -> None:
     subprocess.run(  # noqa: S603
         [
-            "/opt/homebrew/bin/ffmpeg",
+            FFMPEG,
             "-y",
             "-f",
             "lavfi",
