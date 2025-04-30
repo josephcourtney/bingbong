@@ -3,7 +3,7 @@ import shutil
 import click
 
 from . import audio, launchctl, notify
-from .paths import OUTDIR
+from .paths import DEFAULT_OUTDIR
 
 
 @click.group()
@@ -35,9 +35,9 @@ def uninstall():
 @main.command()
 def clean():
     """Delete generated audio files."""
-    if OUTDIR.exists():
-        shutil.rmtree(OUTDIR)
-        click.echo(f"Removed: {OUTDIR}")
+    if DEFAULT_OUTDIR.exists():
+        shutil.rmtree(DEFAULT_OUTDIR)
+        click.echo(f"Removed: {DEFAULT_OUTDIR}")
     else:
         click.echo("No generated files found.")
 

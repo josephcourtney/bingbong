@@ -7,15 +7,16 @@ from pathlib import Path
 import sounddevice as sd
 import soundfile as sf
 
-from .paths import OUTDIR
+from .paths import DEFAULT_OUTDIR
 
 # --- Constants ---
 DATA = files("bingbong.data")
 POP = str(DATA / "pop.wav")
 CHIME = str(DATA / "chime.wav")
-SILENCE = str(OUTDIR / "silence.wav")
 POPS_PER_CLUSTER = 3
 FFMPEG = shutil.which("ffmpeg")
+
+POPS_PER_CLUSTER = 3
 
 
 def play_file(path: Path) -> None:
@@ -27,12 +28,16 @@ def play_file(path: Path) -> None:
         print(f"Failed to play audio: {err}")
 
 
-def concat(input_files: Sequence[str], output: Path) -> None:
+def concat(input_files: Sequence[str], output: Path, outdir: Path = DEFAULT_OUTDIR) -> None:
     """Concatenate .wav files into one using ffmpeg."""
-    list_path = OUTDIR / "temp_list.txt"
+    outdir.mkdir(parents=True, exist_ok=True)
+    list_path = outdir / "temp_list.txt"
     with list_path.open("w", encoding="utf-8") as f:
         f.writelines(f"file '{file}'\n" for file in input_files)
 
+    if not FFMPEG:
+        msg = "ffmpeg is not available on this system."
+        raise RuntimeError(msg)
     try:
         subprocess.run(  # noqa: S603
             [
@@ -54,46 +59,26 @@ def concat(input_files: Sequence[str], output: Path) -> None:
         list_path.unlink(missing_ok=True)
 
 
-def make_quarters() -> None:
+def make_quarters(outdir: Path = DEFAULT_OUTDIR) -> None:
     for n in range(1, 4):
         pops = [POP] * n
-        output = OUTDIR / f"quarter_{n}.wav"
-        concat(pops, output)
+        output = outdir / f"quarter_{n}.wav"
+        concat(pops, output, outdir=outdir)
 
 
-def make_hours() -> None:
+def make_hours(outdir: Path = DEFAULT_OUTDIR) -> None:
     for hour in range(1, 13):
-        clusters: list[str] = []
-        remaining = hour
-        while remaining >= POPS_PER_CLUSTER:
-            clusters.extend([POP] * POPS_PER_CLUSTER)
-            clusters.append(SILENCE)
-            remaining -= POPS_PER_CLUSTER
-        if remaining > 0:
-            clusters.extend([POP] * remaining)
-        output = OUTDIR / f"hour_{hour}.wav"
-        concat([CHIME, *clusters], output)
+        clusters = [POP] * (hour - 1)
+        output = outdir / f"hour_{hour}.wav"
+        concat([CHIME, *clusters], output, outdir=outdir)
 
 
-def make_silence() -> None:
-    subprocess.run(  # noqa: S603
-        [
-            FFMPEG,
-            "-y",
-            "-f",
-            "lavfi",
-            "-i",
-            "anullsrc=r=44100:cl=mono",
-            "-t",
-            "0.2",
-            str(SILENCE),
-        ],
-        check=True,
-    )
+def make_silence(outdir: Path = DEFAULT_OUTDIR) -> None:
+    silence_path = outdir / "silence.wav"
+    subprocess.run([FFMPEG, "-y", "-f", "lavfi", "-i", "anullsrc", str(silence_path)], check=True)  # noqa: S603
 
 
-def build_all() -> None:
-    OUTDIR.mkdir(parents=True, exist_ok=True)
-    make_silence()
-    make_quarters()
-    make_hours()
+def build_all(outdir: Path = DEFAULT_OUTDIR) -> None:
+    make_silence(outdir)
+    make_quarters(outdir)
+    make_hours(outdir)

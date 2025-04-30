@@ -9,9 +9,12 @@ PLIST_PATH = LAUNCH_AGENTS / "com.josephcourtney.bingbong.plist"
 def install() -> None:
     template_path = files("bingbong.data") / "com.josephcourtney.bingbong.plist.in"
     rendered = template_path.read_text(encoding="utf-8")
+
+    PLIST_PATH.parent.mkdir(parents=True, exist_ok=True)
+
     PLIST_PATH.write_text(rendered)
     subprocess.run(  # noqa: S603
-        ["/bin/launchctl", "load", str(PLIST_PATH)],  # ✅ Full path
+        ["/bin/launchctl", "load", str(PLIST_PATH)],
         check=True,
     )
 
