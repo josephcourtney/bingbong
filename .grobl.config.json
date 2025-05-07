@@ -1,5 +1,6 @@
 {
   "exclude_tree": [
+    "_test_planned_features.py",
     "*.pyc",
     "*.egg-info",
     "*.ipynb",

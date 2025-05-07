@@ -1,7 +1,8 @@
+import contextlib
 import logging
 import shutil
 import subprocess  # noqa: S404
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from . import audio
@@ -12,37 +13,28 @@ logger = logging.getLogger("bingbong.notify")
 
 
 def nearest_quarter(minute: int) -> int:
-    """Convert minute to nearest quarter (0-3)."""
     return round(minute / 15) % 4
 
 
 def resolve_chime_path(hour: int, nearest: int, outdir: Path | None = None) -> Path:
-    """Return the path to the correct chime file."""
     if outdir is None:
         outdir = ensure_outdir()
-
     if nearest == 0:
         hour = (hour % 12) + 1
         return outdir / f"hour_{hour}.wav"
-
     return outdir / f"quarter_{nearest}.wav"
 
 
 def is_paused(outdir: Path, now: datetime) -> datetime | None:
-    """Check for a valid pause file; remove it if expired or invalid."""
     pause_file = outdir / ".pause_until"
     if not pause_file.exists():
         return None
     try:
-        expiry_raw = datetime.fromisoformat(pause_file.read_text())
-        expiry_today = now.replace(
-            hour=expiry_raw.hour,
-            minute=expiry_raw.minute,
-            second=expiry_raw.second,
-            microsecond=0,
-        )
-        if now < expiry_today:
-            return expiry_today
+        expiry = datetime.fromisoformat(pause_file.read_text())
+        if expiry.tzinfo is None:
+            expiry = expiry.replace(tzinfo=UTC)
+        if now < expiry:
+            return expiry
     except (ValueError, OSError) as e:
         logger.warning("Invalid pause file; removing it: %s", e)
     pause_file.unlink(missing_ok=True)
@@ -93,28 +85,103 @@ def _ensure_chime_exists(chime_path: Path) -> bool:
 
 
 def notify_time(outdir: Path | None = None) -> None:
-    """Play the appropriate chime for the current time, respecting pauses and DND."""
     if outdir is None:
         outdir = ensure_outdir()
-
     now = datetime.now().astimezone()
-
-    # 1) Manual pause
+    # manual pause
     if is_paused(outdir, now):
         return
-
-    # 2) macOS Do Not Disturb
-    if _in_dnd():
-        return
-
-    # 3) Determine which chime to play
+    # DND
+    defaults = shutil.which("defaults")
+    if defaults:
+        try:
+            res = subprocess.run(  # noqa: S603
+                [defaults, "-currentHost", "read", "com.apple.notificationcenterui", "doNotDisturb"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if res.stdout.strip() == "1":
+                return
+        except (ValueError, OSError):
+            logger.warning("DND check failed")
+    # determine path
     hour = now.hour % 12 or 12
     nearest = nearest_quarter(now.minute)
-    chime_path = resolve_chime_path(hour, nearest, outdir)
+    path = resolve_chime_path(hour, nearest, outdir)
+    # rebuild if missing
+    if not path.exists():
+        logger.warning("%s missing; attempting rebuild...", path)
+        try:
+            build_all()
+        except RuntimeError as err:
+            print(f"Error during rebuild: {err}")
+            return
+        if not path.exists():
+            logger.error("Rebuild failed or file still missing: %s", path)
+            print("Rebuild failed or file still missing.")
+            return
+        print("Rebuild complete.")
+    # duck and play
+    with contextlib.suppress(Exception):
+        audio.duck_others()
+    audio.play_file(path)
 
-    # 4) Rebuild if missing
-    if not chime_path.exists() and not _ensure_chime_exists(chime_path):
+
+def _next_quarter(dt: datetime) -> datetime:
+    # Round down to the last quarter, then bump if we're past it
+    base = dt.replace(
+        minute=(dt.minute // 15) * 15,
+        second=0,
+        microsecond=0,
+    )
+    if base <= dt:
+        base += timedelta(minutes=15)
+    return base
+
+
+def on_wake(outdir: Path | None = None) -> None:
+    if outdir is None:
+        outdir = ensure_outdir()
+    outdir.mkdir(parents=True, exist_ok=True)
+
+    now = datetime.now().astimezone()
+    state = outdir / ".last_run"
+
+    # First run: record and exit
+    if not state.exists():
+        state.write_text(now.isoformat())
         return
 
-    # 5) Play the chime
-    audio.play_file(chime_path)
+    # Read last run time
+    last = datetime.fromisoformat(state.read_text())
+
+    # Iterate true quarter marks > last, ≤ now
+    cursor = _next_quarter(last)
+    while cursor <= now:
+        # Determine which chime to play
+        hour = cursor.hour % 12 or 12
+        q = nearest_quarter(cursor.minute)
+        path = resolve_chime_path(hour, q, outdir)
+
+        # If missing, try rebuilding once
+        if not path.exists():
+            try:
+                build_all(outdir)
+            except RuntimeError:
+                # rebuild failed—skip this slot
+                cursor += timedelta(minutes=15)
+                continue
+            if not path.exists():
+                cursor += timedelta(minutes=15)
+                continue
+
+        # Play it (ducking other audio is optional)
+        with contextlib.suppress(Exception):
+            audio.duck_others()
+        audio.play_file(path)
+
+        cursor += timedelta(minutes=15)
+
+    # Update state for next wake
+    state.write_text(now.isoformat())

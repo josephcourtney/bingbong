@@ -4,6 +4,12 @@ from pathlib import Path
 import pytest
 
 MAX_OUTPUT_LINES = 32
+MAX_TIME_PER_TEST = 5
+
+
+def pytest_collection_modifyitems(config, items):  # call signature defined by pytest  # noqa: ARG001
+    for test in items:
+        test.add_marker(pytest.mark.timeout(MAX_TIME_PER_TEST))
 
 
 @pytest.hookimpl(tryfirst=True)

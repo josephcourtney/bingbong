@@ -8,11 +8,22 @@ import soundfile as sf
 from .ffmpeg import concat, make_silence
 from .paths import ensure_outdir
 
-# --- Constants ---
 DATA = files("bingbong.data")
 POP = str(DATA / "pop.wav")
 CHIME = str(DATA / "chime.wav")
+SILENCE = str(DATA / "silence.wav")
 POPS_PER_CLUSTER = 3
+
+logger = logging.getLogger("bingbong.audio")
+
+
+def duck_others():
+    """Lower other audio streams briefly."""
+    try:
+        # stub: real CoreAudio ducking via pyobjc, here we no-op
+        pass
+    except OSError as e:
+        logger.warning("duck_others failed: %s", e)
 
 
 def play_file(path: Path) -> None:
@@ -21,9 +32,7 @@ def play_file(path: Path) -> None:
         sd.play(data, fs)
         sd.wait()
     except (sf.LibsndfileError, OSError, RuntimeError) as err:
-        logger = logging.getLogger("bingbong.audio")
         logger.exception("Failed to play audio: %s", path)
-        # so that our pytest capsys picks it up:
         print(f"Failed to play audio: {err}")
 
 
@@ -33,7 +42,7 @@ def make_quarters(outdir: Path | None = None) -> None:
     for n in range(1, 4):
         pops = [POP] * n
         output = outdir / f"quarter_{n}.wav"
-        concat([str(outdir / "silence.wave"), *pops], output, outdir=outdir)
+        concat([SILENCE, *pops], output, outdir=outdir)
 
 
 def make_hours(outdir: Path | None = None) -> None:
@@ -42,8 +51,7 @@ def make_hours(outdir: Path | None = None) -> None:
     for hour in range(1, 13):
         clusters = [POP] * (hour - 1)
         output = outdir / f"hour_{hour}.wav"
-        concat([CHIME, *clusters], output, outdir=outdir)
-        concat([str(outdir / "silence.wave"), CHIME, *clusters], output, outdir=outdir)
+        concat([SILENCE, CHIME, *clusters], output, outdir=outdir)
 
 
 def build_all(outdir: Path | None = None) -> None:
