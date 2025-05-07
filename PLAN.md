@@ -1,93 +1,37 @@
-## Internal Improvements
+- [ ] **Unified cron-driven engine**  
+  - In `config.toml` support:  
+    - `chime_schedule = "<cron-expr>"` (when to play)  
+    - `suppress_schedule = ["<cron-expr>", …]` (when to silence)  
+  - At install time, render both into `<StartCalendarInterval>` entries  
 
-1. **Release Automation for PyPI**
+- [ ] **Interactive configuration wizard**  
+  - Scan or initialize `~/.config/bingbong/config.toml`  
+  - Prompt for:  
+    - Chime schedule (cron)  
+    - Suppression windows (daily quiet hours or cron)  
+    - Respect system DND?  
+    - Time-zone override (optional)  
+    - Custom sounds (paths or bundled options)  
+  - Validate inputs and emit a complete config file  
 
-   - **Effort:** Low
-   - **Impact:** High
-   - Add a GitHub Action (or UV CI) that on each tagged commit runs `build`, `twine check`, and `twine upload`. Improves release cadence and reduces manual mistakes.
+- [ ] **Enhanced status output**  
+  - Show next scheduled chime and any upcoming suppression window  
+  - If a temporary pause is active, display remaining time  
 
-2. **Better Logging Infrastructure**
+- [ ] **Volume control & ducking**  
+  - Integrate with CoreAudio to lower other audio streams while chime plays  
 
-   - **Effort:** Low
-   - **Impact:** Moderate
-   - Swap ad-hoc `print` for Python’s `logging` with adjustable levels (INFO/WARN/ERROR) and simple rotation. Optional flag to increase verbosity.
+- [ ] **Better logging & diagnostics**  
+  - Write to `~/Library/Logs/bingbong.log` or use Unified Logging (`os_log`)  
+  - Rotate logs and integrate with Console.app  
 
-3. **Edge-Case & Property-Based Tests**
+- [ ] **Sleep/wake handling**  
+  - Record last-run timestamp in state file  
+  - On wake, optionally play any missed chimes  
 
-   - **Effort:** Low → Moderate
-   - **Impact:** Moderate
-   - Bundle a few Hypothesis tests around `nearest_quarter` and random minute inputs to catch off-by-ones beyond fixed boundaries.
-
-4. **Type Annotations & Static Checking**
-
-   - **Effort:** Moderate
-   - **Impact:** Moderate
-   - Add return‐type hints everywhere and enable mypy in CI. Catches signature mismatches early.
-
-5. **Dependency Injection for Subprocess/FFmpeg Calls**
-
-   - **Effort:** Moderate
-   - **Impact:** Moderate
-   - Abstract out calls to `subprocess.run` and `shutil.which` behind an interface injectable in tests—simplifies monkeypatching and future backends.
-
-6. **Configuration Schema & Validation**
-
-   - **Effort:** Moderate
-   - **Impact:** Moderate
-   - Formalize `~/.config/bingbong/config.toml` (or `.yaml`) with a library like `pydantic`. Validates user edits and surfaces clear errors.
-
-7. **CI Quality Gates & Mutation Testing**
-   - **Effort:** High
-   - **Impact:** Moderate
-   - Enforce minimum coverage threshold and optionally integrate a mutation testing tool to surface hidden edge cases.
-
----
-
-## External Features & UX
-
-1. **Graceful FFmpeg-Missing Guidance**
-
-   - **Effort:** Low
-   - **Impact:** High
-   - Catch FFmpeg failures in `install`/`build` and print actionable hints (e.g. `brew install ffmpeg`) instead of raw tracebacks.
-
-2. **Suppress Chime on Screen-Lock**
-
-   - **Effort:** Moderate
-   - **Impact:** High
-   - On macOS, detect screen-locked state (CGSession or similar) and skip all alerts while locked.
-
-3. **Windows Service Support**
-
-   - **Effort:** High
-   - **Impact:** High
-   - Provide a Windows Scheduled Task installer or a tiny tray app wrapper so BingBong can run on Windows without code‐duplication.
-
-4. **Pluggable Sound Packs**
-
-   - **Effort:** Moderate
-   - **Impact:** High
-   - Let users drop in `hour_N.wav`/`quarter_N.wav` (or named packs) into a `sounds/` folder; auto-detect and fallback to built-in if absent.
-
-5. **Configurable Intervals & Quiet-Hours**
-
-   - **Effort:** Moderate
-   - **Impact:** High
-   - In the user config file, allow arbitrary cron-style schedules or disable individual quarters; add a DND-respect flag.
-
-6. **Interactive `bingbong configure` Wizard**
-
-   - **Effort:** Moderate
-   - **Impact:** Moderate
-   - A CLI subcommand that walks users through setting sound packs, schedules, and DND windows, then writes a validated config.
-
-7. **Enhanced `doctor` & `logs` UX**
-
-   - **Effort:** Low
-   - **Impact:** Moderate
-   - Expand `doctor` with clearer suggestions (e.g. “FFmpeg found at /usr/bin/ffmpeg”), colorize pass/fail. Let `logs --follow` tail in real time.
-
-8. **Expanded README & Troubleshooting Guide**
-   - **Effort:** Low
-   - **Impact:** Moderate
-   - Add sections on Windows setup, common LaunchAgents permissions, missing-FFmpeg fixes, and examples of custom sound packs.
+- [ ] **Documentation & examples**  
+  - Expand README with:  
+    - Cron-syntax examples for chimes and suppression  
+    - Quiet-hours recipes  
+    - Automator/Shortcuts integration  
+    - Troubleshooting tips  

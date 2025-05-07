@@ -28,16 +28,13 @@ def resolve_chime_path(hour: int, nearest: int, outdir: Path | None = None) -> P
     return outdir / f"quarter_{nearest}.wav"
 
 
-def _is_paused(outdir: Path, now: datetime) -> bool:
+def is_paused(outdir: Path, now: datetime) -> datetime | None:
     """Check for a valid pause file; remove it if expired or invalid."""
     pause_file = outdir / ".pause_until"
     if not pause_file.exists():
-        return False
-
+        return None
     try:
-        # Parse the stored timestamp, then treat its time-of-day on today's date
         expiry_raw = datetime.fromisoformat(pause_file.read_text())
-        # Build an expiry for *today* at that time
         expiry_today = now.replace(
             hour=expiry_raw.hour,
             minute=expiry_raw.minute,
@@ -45,13 +42,11 @@ def _is_paused(outdir: Path, now: datetime) -> bool:
             microsecond=0,
         )
         if now < expiry_today:
-            # still paused until later today
-            return True
-        # expired: fall through so we remove the file
+            return expiry_today
     except (ValueError, OSError) as e:
         logger.warning("Invalid pause file; removing it: %s", e)
     pause_file.unlink(missing_ok=True)
-    return False
+    return None
 
 
 def _in_dnd() -> bool:
@@ -105,7 +100,7 @@ def notify_time(outdir: Path | None = None) -> None:
     now = datetime.now().astimezone()
 
     # 1) Manual pause
-    if _is_paused(outdir, now):
+    if is_paused(outdir, now):
         return
 
     # 2) macOS Do Not Disturb

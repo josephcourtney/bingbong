@@ -9,6 +9,7 @@ import click
 
 from . import audio, launchctl, notify
 from .ffmpeg import ffmpeg_available
+from .notify import is_paused
 from .paths import ensure_outdir
 
 with tempfile.NamedTemporaryFile(prefix="bingbong-out-", delete=False) as out_fh:
@@ -90,6 +91,10 @@ def status():
         click.echo("✅ Service is loaded.")
     else:
         click.echo("❌ Service is NOT loaded.")
+    now = datetime.now().astimezone()
+    pause_until = is_paused(ensure_outdir(), now)
+    if pause_until:
+        click.echo(f"🔕 Chimes paused until {pause_until:%Y-%m-%d %H:%M}")
 
 
 @main.command()
@@ -202,3 +207,15 @@ def doctor():
         raise SystemExit(0)
     click.echo("Woe! One or more checks failed.")
     raise SystemExit(1)
+
+
+@main.command()
+def unpause():
+    """Resume chimes immediately (cancel any pending pause)."""
+    outdir = ensure_outdir()
+    pause_file = outdir / ".pause_until"
+    if pause_file.exists():
+        pause_file.unlink()
+        click.echo("🔔 Chimes resumed.")
+    else:
+        click.echo("🔔 Chimes were not paused.")

@@ -13,7 +13,9 @@
     "uv.lock",
     "yarn.lock"
   ],
-  "exclude_print": [],
+  "exclude_print": [
+    "LICENSE.md"
+  ],
   "include_tree_tags": "tree",
   "include_file_tags": "file"
 }
