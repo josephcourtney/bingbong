@@ -33,7 +33,7 @@ def make_quarters(outdir: Path | None = None) -> None:
     for n in range(1, 4):
         pops = [POP] * n
         output = outdir / f"quarter_{n}.wav"
-        concat([str(outdir / "silence.wave"), *pops], output, outdir=outdir)
+        concat([str(outdir / "silence.wav"), *pops], output, outdir=outdir)
 
 
 def make_hours(outdir: Path | None = None) -> None:
@@ -43,10 +43,11 @@ def make_hours(outdir: Path | None = None) -> None:
         clusters = [POP] * (hour - 1)
         output = outdir / f"hour_{hour}.wav"
         concat([CHIME, *clusters], output, outdir=outdir)
-        concat([str(outdir / "silence.wave"), CHIME, *clusters], output, outdir=outdir)
+        concat([str(outdir / "silence.wav"), CHIME, *clusters], output, outdir=outdir)
 
 
 def build_all(outdir: Path | None = None) -> None:
     make_silence(outdir)
+
     make_quarters(outdir)
     make_hours(outdir)
