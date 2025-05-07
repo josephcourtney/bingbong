@@ -1,7 +1,7 @@
 # =================================== project ====================================
 [project]
   name = "bingbong"
-  version = "0.0.19"
+  version = "0.0.20"
   description = "bing, bong!"
   readme = "README.md"
   authors = [{ name = "", email = "" }]
@@ -34,6 +34,12 @@
     "awl",
     "commitizen>=4.6.0",
     "freezegun>=1.5.1",
+    "matplotlib>=3.10.1",
+    "jkit",
+    "pillow>=11.2.1",
+    "shapely>=2.1.0",
+    "svgpathtools>=1.6.1",
+    "ortools>=9.12.4544",
   ]
 
 # =================================== build ====================================
@@ -107,7 +113,8 @@
   output = ".coverage.xml"
 
 [tool.uv.sources]
-  awl = { git = "https://github.com/josephcourtney/awl" }
+  awl  = { git = "https://github.com/josephcourtney/awl" }
+  jkit = { path = "../jkit" }
 
 [tool.commitizen]
   name                     = "cz_conventional_commits"

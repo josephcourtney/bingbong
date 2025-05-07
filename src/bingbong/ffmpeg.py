@@ -1,12 +1,10 @@
 import shutil
 import subprocess  # noqa: S404
-from collections.abc import Sequence
 from importlib.resources import files
 from pathlib import Path
 
 from .paths import ensure_outdir
 
-# --- Constants ---
 DATA = files("bingbong.data")
 POP = str(DATA / "pop.wav")
 CHIME = str(DATA / "chime.wav")
@@ -15,24 +13,33 @@ FFMPEG = shutil.which("ffmpeg")
 
 
 def ffmpeg_available() -> bool:
+    """Return True if the ffmpeg binary is on PATH."""
     return FFMPEG is not None
 
 
-def concat(input_files: Sequence[str], output: Path, outdir: Path | None = None) -> None:
+def concat(inputs: list[Path], output: Path, outdir: Path | None = None) -> None:
     """Concatenate .wav files into one using ffmpeg."""
+    if not ffmpeg_available():
+        msg = "ffmpeg is not available"
+        raise RuntimeError(msg)
     if outdir is None:
         outdir = ensure_outdir()
-    list_path = outdir / "temp_list.txt"
-    with list_path.open("w", encoding="utf-8") as f:
-        f.writelines(f"file '{file}'\n" for file in input_files)
 
-    if not FFMPEG:
+    list_path = outdir / "temp_list.txt"
+    outdir.mkdir(parents=True, exist_ok=True)
+    with list_path.open("w", encoding="utf-8") as f:
+        for file in inputs:
+            f.write(f"file '{file}'\n")
+
+    ffmpeg_bin = shutil.which("ffmpeg")
+    if not ffmpeg_bin:
         msg = "ffmpeg is not available on this system."
         raise RuntimeError(msg)
+
     try:
         subprocess.run(  # noqa: S603
             [
-                FFMPEG,
+                ffmpeg_bin,
                 "-y",
                 "-f",
                 "concat",
@@ -46,27 +53,38 @@ def concat(input_files: Sequence[str], output: Path, outdir: Path | None = None)
             ],
             check=True,
         )
+    except subprocess.CalledProcessError as e:
+        msg = f"ffmpeg concat failed: {e}"
+        raise RuntimeError(msg) from e
     finally:
         list_path.unlink(missing_ok=True)
 
 
 def make_silence(outdir: Path | None = None, duration: int = 1) -> None:
+    """Generate a silent WAV of given duration."""
+    if not ffmpeg_available():
+        msg = "ffmpeg is not available"
+        raise RuntimeError(msg)
     if outdir is None:
         outdir = ensure_outdir()
+    outdir.mkdir(parents=True, exist_ok=True)
+
     silence_path = outdir / "silence.wav"
-    if not FFMPEG:
+    ffmpeg_bin = shutil.which("ffmpeg")
+    if not ffmpeg_bin:
         msg = "ffmpeg is not available on this system."
         raise RuntimeError(msg)
+
     subprocess.run(  # noqa: S603
         [
-            FFMPEG,
+            ffmpeg_bin,
             "-y",
             "-f",
             "lavfi",
             "-i",
             "anullsrc=r=44100:cl=stereo",
             "-t",
-            str(duration),  # <-- ADD THIS
+            str(duration),
             str(silence_path),
         ],
         check=True,

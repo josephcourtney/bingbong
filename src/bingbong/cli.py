@@ -1,5 +1,8 @@
+import logging
 import shutil
 import subprocess  # noqa: S404
+import tempfile
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import click
@@ -8,9 +11,19 @@ from . import audio, launchctl, notify
 from .ffmpeg import ffmpeg_available
 from .paths import ensure_outdir
 
+with tempfile.NamedTemporaryFile(prefix="bingbong-out-", delete=False) as out_fh:
+    STDOUT_LOG = Path(out_fh.name)
+with tempfile.NamedTemporaryFile(prefix="bingbong-err-", delete=False) as err_fh:
+    STDERR_LOG = Path(err_fh.name)
+
 PLIST_LABEL = "com.josephcourtney.bingbong"
-STDOUT_LOG = Path("/tmp/bingbong.out")  # noqa: S108
-STDERR_LOG = Path("/tmp/bingbong.err")  # noqa: S108
+
+# configure root logger once
+logger = logging.getLogger("bingbong")
+logger.setLevel(logging.INFO)
+handler = logging.StreamHandler()
+handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+logger.addHandler(handler)
 
 
 @click.group()
@@ -21,12 +34,12 @@ def main():
 @main.command()
 def build():
     """Build composite chime/quarter audio files."""
+    if not ffmpeg_available():
+        click.echo("ffmpeg is not available")
+        return
     try:
-        if not ffmpeg_available():
-            click.echo("Error: ffmpeg is not available on this system.")
-            return
         audio.build_all()
-        click.echo("Built chime and quarter audio files.")
+        logger.info("Built chime and quarter audio files.")
     except RuntimeError as err:
         click.echo(str(err))
 
@@ -93,6 +106,33 @@ def logs(*, clear: bool) -> None:
                 click.echo(log.read_text())
         else:
             click.echo("No log found.")
+
+
+@main.command()
+@click.option("--minutes", type=int, help="Pause for N minutes.")
+@click.option("--until-tomorrow", is_flag=True, help="Pause until 8 AM tomorrow.")
+def pause(minutes, until_tomorrow):
+    """Temporarily silence all chimes."""
+    now = datetime.now().astimezone()
+    if minutes is not None and until_tomorrow:
+        msg = "Cannot combine --minutes with --until-tomorrow"
+        raise click.UsageError(msg)
+
+    if until_tomorrow:
+        # assume wake at 8 AM local time
+        tomorrow = (now + timedelta(days=1)).replace(hour=8, minute=0, second=0, microsecond=0)
+        expiry = tomorrow
+    elif minutes:
+        expiry = now + timedelta(minutes=minutes)
+    else:
+        msg = "Specify --minutes or --until-tomorrow"
+        raise click.UsageError(msg)
+
+    # write expiry to file
+    outdir = ensure_outdir()
+    pause_file = outdir / ".pause_until"
+    pause_file.write_text(expiry.isoformat())
+    click.echo(f"🔕 Chimes paused until {expiry:%Y-%m-%d %H:%M}")
 
 
 @main.command()

@@ -2,6 +2,7 @@ import subprocess
 import sys
 
 from click.testing import CliRunner
+from freezegun import freeze_time
 
 from bingbong import audio
 from bingbong.cli import main
@@ -217,3 +218,46 @@ def test_cli_doctor_failure_exit(monkeypatch, tmp_path):
     result = CliRunner().invoke(main, ["doctor"])
     assert "Woe! One or more checks failed" in result.output
     assert result.exit_code == 1
+
+
+@freeze_time("2025-05-06 10:00:00")
+def test_pause_minutes_creates_file(tmp_path, monkeypatch):
+    # Make bingbong write into tmp_path
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
+    monkeypatch.setattr("bingbong.cli.ensure_outdir", lambda: tmp_path)
+
+    runner = CliRunner()
+    result = runner.invoke(main, ["pause", "--minutes", "5"])
+    assert result.exit_code == 0
+    pause_file = tmp_path / ".pause_until"
+    assert pause_file.exists()
+
+    content = pause_file.read_text().strip()
+    # expecting exactly 10:05:00
+    assert content.startswith("2025-05-06T10:05:00")
+
+
+@freeze_time("2025-05-06 22:30:00")
+def test_pause_until_tomorrow(tmp_path, monkeypatch):
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
+    monkeypatch.setattr("bingbong.cli.ensure_outdir", lambda: tmp_path)
+
+    runner = CliRunner()
+    result = runner.invoke(main, ["pause", "--until-tomorrow"])
+    assert result.exit_code == 0
+    pause_file = tmp_path / ".pause_until"
+    assert pause_file.exists()
+
+    content = pause_file.read_text().strip()
+    # tomorrow at 08:00 local
+    assert content.startswith("2025-05-07T08:00:00")
+
+
+def test_pause_mutually_exclusive(tmp_path, monkeypatch):
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
+    monkeypatch.setattr("bingbong.cli.ensure_outdir", lambda: tmp_path)
+
+    runner = CliRunner()
+    result = runner.invoke(main, ["pause", "--minutes", "5", "--until-tomorrow"])
+    assert result.exit_code != 0
+    assert "Cannot combine --minutes with --until-tomorrow" in result.output

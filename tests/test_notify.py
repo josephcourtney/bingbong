@@ -1,12 +1,14 @@
 import importlib
 import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
 from freezegun import freeze_time
 
+import bingbong.audio as audio_mod
 from bingbong import audio, notify, paths
-from bingbong.notify import nearest_quarter, resolve_chime_path
+from bingbong.notify import nearest_quarter, notify_time, resolve_chime_path
 
 HOURS = list(range(1, 13))
 QUARTERS = [1, 2, 3]
@@ -145,3 +147,72 @@ def test_resolve_chime_path_midnight_rollover(tmp_path, monkeypatch):
     monkeypatch.setattr(paths, "DEFAULT_OUTDIR", tmp_path)
     p = resolve_chime_path(12, 0)
     assert p == tmp_path / "hour_1.wav"
+
+
+def test_notify_respects_manual_pause(tmp_path, monkeypatch):
+    # create a pause file in the future
+    future = "2025-05-06T11:00:00"
+    (tmp_path / ".pause_until").write_text(future)
+
+    called = {"played": False}
+    monkeypatch.setattr(audio_mod, "play_file", lambda _path: called.__setitem__("played", True))  # noqa: FBT003
+
+    # Should return early, not call play_file
+    notify_time(outdir=tmp_path)
+    assert not called["played"]
+
+
+@freeze_time("2025-05-06 10:10:00")
+def test_notify_unpauses_after_expiry(tmp_path, monkeypatch):
+    # pause expired at 10:00
+    (tmp_path / ".pause_until").write_text("2025-05-06T10:00:00")
+
+    # dummy chime path
+    dummy = tmp_path / "hour_1.wav"
+    dummy.write_bytes(b"")  # exist
+
+    # force resolve_chime_path to return our dummy
+    monkeypatch.setattr("bingbong.notify.resolve_chime_path", lambda hour, nearest, outdir: dummy)  # noqa: ARG005
+
+    called = {"played": False}
+    monkeypatch.setattr(audio_mod, "play_file", lambda _path: called.__setitem__("played", True))  # noqa: FBT003
+
+    notify_time(outdir=tmp_path)
+    assert called["played"]
+    # expired file should be removed
+    assert not (tmp_path / ".pause_until").exists()
+
+
+def test_notify_respects_dnd(tmp_path, monkeypatch):
+    # no pause file
+    # stub subprocess.run to pretend DND is on
+    class DummyCP:
+        def __init__(self):
+            self.stdout = "1"
+
+    monkeypatch.setattr(subprocess, "run", lambda *args, **kwargs: DummyCP())  # noqa: ARG005
+
+    called = {"played": False}
+    monkeypatch.setattr(audio_mod, "play_file", lambda _path: called.__setitem__("played", True))  # noqa: FBT003
+
+    notify_time(outdir=tmp_path)
+    assert not called["played"]
+
+
+def test_bad_pause_file_is_deleted_and_played(tmp_path, monkeypatch):
+    # create a malformed pause file
+    (tmp_path / ".pause_until").write_text("not-a-timestamp")
+
+    # dummy chime path
+    dummy = tmp_path / "quarter_1.wav"
+    dummy.write_bytes(b"")
+
+    monkeypatch.setattr("bingbong.notify.resolve_chime_path", lambda hour, nearest, outdir: dummy)  # noqa: ARG005
+
+    called = {"played": False}
+    monkeypatch.setattr(audio_mod, "play_file", lambda _path: called.__setitem__("played", True))  # noqa: FBT003
+
+    notify_time(outdir=tmp_path)
+    assert called["played"]
+    # malformed file should have been removed
+    assert not (tmp_path / ".pause_until").exists()

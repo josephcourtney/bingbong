@@ -1,3 +1,4 @@
+import logging
 from importlib.resources import files
 from pathlib import Path
 
@@ -20,6 +21,9 @@ def play_file(path: Path) -> None:
         sd.play(data, fs)
         sd.wait()
     except (sf.LibsndfileError, OSError, RuntimeError) as err:
+        logger = logging.getLogger("bingbong.audio")
+        logger.exception("Failed to play audio: %s", path)
+        # so that our pytest capsys picks it up:
         print(f"Failed to play audio: {err}")
 
 
