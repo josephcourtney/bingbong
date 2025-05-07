@@ -1,3 +1,4 @@
+import importlib
 import shutil
 import subprocess
 from pathlib import Path
@@ -142,9 +143,10 @@ def test_nearest_quarter_rounding_edges():
 
 def test_resolve_chime_path_midnight_rollover(tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
-    monkeypatch.setattr(paths, "ensure_outdir", lambda: tmp_path / "bingbong")
-    expected = tmp_path / "bingbong" / "hour_1.wav"
-    assert resolve_chime_path(12, 0) == expected
+    importlib.reload(paths)
+    monkeypatch.setattr(paths, "DEFAULT_OUTDIR", tmp_path)
+    p = resolve_chime_path(12, 0)
+    assert p == tmp_path / "hour_1.wav"
 
 
 def test_notify_respects_manual_pause(tmp_path, monkeypatch):

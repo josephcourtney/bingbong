@@ -27,13 +27,9 @@ def test_cli_build_and_clean(monkeypatch, tmp_path):
     assert not tmp_path.exists()
 
 
-def test_cli_install_and_uninstall(monkeypatch, tmp_path):
-    config_path = tmp_path / "config.toml"
-    config_path.write_text('chime_schedule = "0 * * * *"\n')
-
+def test_cli_install_and_uninstall(monkeypatch):
     monkeypatch.setattr("bingbong.launchctl.install", lambda: None)
     monkeypatch.setattr("bingbong.launchctl.uninstall", lambda: None)
-    monkeypatch.setattr("bingbong.cli.config_path", lambda: config_path)
 
     runner = CliRunner()
     assert runner.invoke(main, ["install"]).exit_code == 0
@@ -134,15 +130,11 @@ def test_cli_logs_clear(monkeypatch, tmp_path):
 
 
 def test_cli_logs_no_file(monkeypatch, tmp_path):
-    stdout = tmp_path / "no.out"
-    stderr = tmp_path / "no.err"
-    monkeypatch.setattr("bingbong.cli.STDOUT_LOG", stdout)
-    monkeypatch.setattr("bingbong.cli.STDERR_LOG", stderr)
+    monkeypatch.setattr("bingbong.cli.STDOUT_LOG", tmp_path / "no.out")
+    monkeypatch.setattr("bingbong.cli.STDERR_LOG", tmp_path / "no.err")
 
     result = CliRunner().invoke(main, ["logs"])
-    assert "No stdout log found at" in result.output
-    assert "No stderr log found at" in result.output
-    assert "No log files found." in result.output
+    assert "No log found" in result.output
 
 
 def test_cli_doctor_success(monkeypatch, tmp_path):

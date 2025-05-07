@@ -1,29 +1,29 @@
+import os
 import shutil
 import stat
 import subprocess
 import tomllib
 from datetime import datetime, timedelta
-from os import getenv
 from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
-from croniter import croniter
 from freezegun import freeze_time
-from tomlkit import dumps
+from tomlkit import dumps as tomlkit_dumps
 
 from bingbong import audio, cli, launchctl, notify
-from bingbong.cli import config_path
-from bingbong.paths import ensure_outdir
+from bingbong.paths import DEFAULT_OUTDIR, ensure_outdir
+from tests.test_planned_features import isolate_xdg, write_config
 
-_DEFAULT_BASE = Path(getenv("XDG_DATA_HOME", Path.home() / ".local" / "share"))
-DEFAULT_OUTDIR = _DEFAULT_BASE / "bingbong"
+CONFIG_PATH = DEFAULT_OUTDIR / "config.toml"
 
 
 def write_config(cfg: dict) -> None:
     """Write a minimal config.toml under DEFAULT_OUTDIR."""
+    from tomlkit import dumps
+
     DEFAULT_OUTDIR.mkdir(parents=True, exist_ok=True)
-    config_path().write_text(dumps(cfg))
+    CONFIG_PATH.write_text(dumps(cfg))
 
 
 @pytest.fixture(autouse=True)
@@ -36,7 +36,7 @@ def isolate_xdg(monkeypatch, tmp_path):
 
 
 def read_config():
-    return tomllib.loads(config_path().read_bytes())
+    return tomllib.loads(CONFIG_PATH.read_bytes())
 
 
 #
@@ -44,8 +44,28 @@ def read_config():
 #
 
 
+def write_config(cfg: dict) -> None:
+    CONFIG_PATH.write_text(tomlkit_dumps(cfg))
+
+
+def test_arbitrary_cron_expression_translated(isolate_xdg, monkeypatch):
+    # e.g. chime every 15 minutes
+    cfg = {"chime_schedule": "*/15 * * * *", "suppress_schedule": []}
+    write_config(cfg)
+    tpl = launchctl.files("bingbong.data") / "com.josephcourtney.bingbong.plist.in"
+    monkeypatch.setattr(tpl, "read_text", lambda **kw: "__START_INTERVAL__")
+    written = {}
+    monkeypatch.setattr(launchctl.PLIST_PATH, "write_text", lambda c, **kw: written.setdefault("c", c))
+    launchctl.install()
+    content = written["c"]
+    # should produce four entries: minute 0,15,30,45
+    assert content.count("<dict>") >= 4
+    assert "<key>Minute</key><integer>15</integer>" in content
+    assert "<key>Minute</key><integer>45</integer>" in content
+
+
 @pytest.mark.parametrize("bad_cron", ["", "60 * * * *", "bad cron"])
-def test_invalid_cron_in_config_errors(bad_cron, isolate_xdg):  # noqa: ARG001
+def test_invalid_cron_in_config_errors(bad_cron, isolate_xdg):
     write_config({"chime_schedule": bad_cron, "suppress_schedule": []})
     runner = CliRunner()
     result = runner.invoke(cli.main, ["install"])
@@ -53,36 +73,15 @@ def test_invalid_cron_in_config_errors(bad_cron, isolate_xdg):  # noqa: ARG001
     assert "Invalid cron" in result.output
 
 
-def test_arbitrary_cron_expression_translated(isolate_xdg, monkeypatch):  # noqa: ARG001
-    cfg = {"chime_schedule": "*/15 * * * *", "suppress_schedule": []}
-    write_config(cfg)
-    tpl = launchctl.files("bingbong.data") / "com.josephcourtney.bingbong.plist.in"
-    monkeypatch.setattr(tpl, "read_text", lambda **_: "__START_INTERVAL__")
-    written = {}
-    monkeypatch.setattr(launchctl.PLIST_PATH, "write_text", lambda c, **_: written.setdefault("c", c))
-    launchctl.install()
-    content = written["c"]
-    assert content.count("<dict>") >= 4
-    assert "<key>Minute</key><integer>15</integer>" in content
-    assert "<key>Minute</key><integer>45</integer>" in content
-
-
 #
 # 2) Interactive configuration wizard
 #
 
 
-def test_wizard_multiple_suppressions_and_options():
+def test_wizard_multiple_suppressions_and_options(tmp_path, monkeypatch):
+    # Simulate full wizard:
     inputs = (
-        "*/30 * * * *\n"  # cron
-        "y\n"  # add suppression?
-        "22:00-23:00\n"  # first range
-        "y\n"  # another?
-        "00:00-06:00\n"  # second range
-        "n\n"  # no more
-        "y\n"  # respect DND?
-        "Europe/London\n"  # timezone
-        "/tmp/s1.wav,/tmp/s2.wav\n"  # custom sounds
+        "*/30 * * * *\ny\n22:00-23:00\ny\n00:00-06:00\nn\ny\nEurope/London\n/tmp/s1.wav,/tmp/s2.wav" + "\n"
     )
     runner = CliRunner()
     result = runner.invoke(cli.main, ["configure"], input=inputs)
@@ -92,14 +91,13 @@ def test_wizard_multiple_suppressions_and_options():
     assert cfg["suppress_schedule"] == ["22:00-23:00", "00:00-06:00"]
     assert cfg["respect_dnd"] is True
     assert cfg["timezone"] == "Europe/London"
-    assert cfg["custom_sounds"] == ["/tmp/s1.wav", "/tmp/s2.wav"]  # noqa: S108
+    assert cfg["custom_sounds"] == ["/tmp/s1.wav", "/tmp/s2.wav"]
 
 
-def test_wizard_handles_invalid_time_range():
+def test_wizard_handles_invalid_time_range(tmp_path):
+    # if user enters bad range, wizard should reject and reprompt (simulate by EOF)
     runner = CliRunner()
-    inputs = "0 * * * *\n"  # valid cron
-    inputs += "y\n"  # add suppression
-    inputs += "bad-range\n"  # invalid range
+    inputs = "0 * * * *\ny\nbad-range" + "\n"
     result = runner.invoke(cli.main, ["configure"], input=inputs)
     assert result.exit_code != 0
     assert "Invalid time range" in result.output
@@ -113,32 +111,33 @@ def test_wizard_handles_invalid_time_range():
 @freeze_time("2025-05-07 11:05:00")
 def test_status_without_suppression(monkeypatch, isolate_xdg):
     write_config({"chime_schedule": "0 * * * *", "suppress_schedule": []})
-    home = isolate_xdg / "home"
-    monkeypatch.setenv("HOME", str(home))
-    (home / "Library" / "LaunchAgents").mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("HOME", str(isolate_xdg / "home"))
+    os.makedirs(isolate_xdg / "home" / "Library" / "LaunchAgents", exist_ok=True)
+    # service loaded
     monkeypatch.setattr(
-        subprocess, "run", lambda *_, **__: subprocess.CompletedProcess([], 0, stdout="bingbong", stderr="")
+        subprocess, "run", lambda *a, **k: subprocess.CompletedProcess([], 0, stdout="bingbong", stderr="")
     )
     result = CliRunner().invoke(cli.main, ["status"])
     assert "Next chime: 12:00" in result.output
     assert "Suppressed until" not in result.output
 
 
-def test_status_shows_manual_pause_remaining(monkeypatch, isolate_xdg):  # noqa: ARG001
+def test_status_shows_manual_pause_remaining(monkeypatch, isolate_xdg):
     write_config({"chime_schedule": "0 * * * *", "suppress_schedule": []})
-    pause_until = datetime.now(tz=datetime.UTC) + timedelta(minutes=10)
+    pause_until = datetime.now() + timedelta(minutes=10)
     (ensure_outdir() / ".pause_until").write_text(pause_until.isoformat())
     monkeypatch.setattr(
-        subprocess, "run", lambda *_, **__: subprocess.CompletedProcess([], 0, stdout="", stderr="")
+        subprocess, "run", lambda *a, **k: subprocess.CompletedProcess([], 0, stdout="", stderr="")
     )
     result = CliRunner().invoke(cli.main, ["status"])
     assert "Chimes paused until" in result.output
     assert pause_until.strftime("%H:%M") in result.output
 
 
-def test_status_missing_or_malformed_config(isolate_xdg):  # noqa: ARG001
-    if config_path().exists():
-        config_path().unlink()
+def test_status_missing_or_malformed_config(monkeypatch, isolate_xdg):
+    # no config.toml
+    if CONFIG_PATH.exists():
+        CONFIG_PATH.unlink()
     result = CliRunner().invoke(cli.main, ["status"])
     assert result.exit_code != 0
     assert "configuration file" in result.output.lower()
@@ -171,17 +170,17 @@ def test_rotation_threshold_constant():
     assert cli.LOG_ROTATE_SIZE > 0
 
 
-def test_doctor_prints_log_paths_and_rotated(monkeypatch, isolate_xdg, tmp_path):  # noqa: ARG001
+def test_doctor_prints_log_paths_and_rotated(monkeypatch, isolate_xdg, tmp_path):
     write_config({"chime_schedule": "0 * * * *", "suppress_schedule": []})
     home = tmp_path / "home"
     monkeypatch.setenv("HOME", str(home))
-    log_dir = Path(home / "Library" / "Logs")
-    log_dir.mkdir(exist_ok=True)
+    log_dir = home / "Library" / "Logs"
+    os.makedirs(log_dir, exist_ok=True)
     # create current and rotated
     (log_dir / "bingbong.log").write_text("x")
     (log_dir / "bingbong.log.1").write_text("y")
     monkeypatch.setattr(
-        subprocess, "run", lambda *_, **__: subprocess.CompletedProcess([], 0, stdout="bingbong", stderr="")
+        subprocess, "run", lambda *a, **k: subprocess.CompletedProcess([], 0, stdout="bingbong", stderr="")
     )
     result = CliRunner().invoke(cli.main, ["doctor"])
     # doctor should list both files
@@ -193,10 +192,10 @@ def test_log_directory_permission_error(monkeypatch, isolate_xdg):
     write_config({"chime_schedule": "0 * * * *", "suppress_schedule": []})
     home = isolate_xdg / "home"
     monkeypatch.setenv("HOME", str(home))
-    log_dir = Path(home / "Library" / "Logs")
-    log_dir.mkdir(exist_ok=True)
+    log_dir = home / "Library" / "Logs"
+    os.makedirs(log_dir, exist_ok=True)
     # remove write permission
-    log_dir.chmod(stat.S_IREAD)
+    os.chmod(log_dir, stat.S_IREAD)
     result = CliRunner().invoke(cli.main, ["doctor"])
     assert "cannot write logs" in result.output.lower()
 
@@ -218,7 +217,7 @@ def test_on_wake_first_run_creates_state_without_play(monkeypatch, tmp_path):
     notify.on_wake(outdir=out)
     assert called == []
     assert state.exists()
-    assert datetime.fromisoformat(state.read_text()) == datetime(2025, 5, 7, 8, 0, 0, tzinfo=datetime.UTC)
+    assert datetime.fromisoformat(state.read_text()) == datetime(2025, 5, 7, 8, 0, 0)
 
 
 @freeze_time("2025-05-07 07:05:00")
@@ -232,7 +231,7 @@ def test_on_wake_partial_miss_only_next_hour(monkeypatch, tmp_path):
     assert called == ["hour_7.wav"]
     # update state
     new_ts = datetime.fromisoformat((out / ".last_run").read_text())
-    assert new_ts == datetime(2025, 5, 7, 7, 5, 0, tzinfo=datetime.UTC)
+    assert new_ts == datetime(2025, 5, 7, 7, 5, 0)
 
 
 def test_on_wake_handles_timezone_boundary(monkeypatch, tmp_path):
@@ -255,6 +254,8 @@ def test_on_wake_handles_timezone_boundary(monkeypatch, tmp_path):
 
 
 def test_readme_cron_snippets_parse_with_croniter():
+    from croniter import croniter
+
     readme = Path(__file__).parent.parent / "README.md"
     text = readme.read_text()
     # find all triple-backtick cron blocks
@@ -266,7 +267,7 @@ def test_readme_cron_snippets_parse_with_croniter():
 
 
 # 1) suppress_schedule rendering at install time
-def test_install_renders_suppress_schedule_crons(isolate_xdg, monkeypatch):  # noqa: ARG001
+def test_install_renders_suppress_schedule_crons(isolate_xdg, monkeypatch):
     write_config({
         "chime_schedule": "0 * * * *",
         "suppress_schedule": ["30 1 * * *", "45 2 * * *"],
@@ -291,7 +292,7 @@ def test_install_renders_suppress_schedule_crons(isolate_xdg, monkeypatch):  # n
     assert "<integer>45</integer>" in out
 
 
-def test_configure_invalid_initial_cron():
+def test_configure_invalid_initial_cron(monkeypatch):
     runner = CliRunner()
     result = runner.invoke(cli.main, ["configure"], input="not-a-cron\n")
     assert result.exit_code != 0
@@ -313,7 +314,7 @@ def test_status_reports_scheduled_suppression_window(isolate_xdg, monkeypatch):
     monkeypatch.setattr(
         subprocess,
         "run",
-        lambda *_, **__: subprocess.CompletedProcess([], 0, stdout="bingbong", stderr=""),
+        lambda *args, **kwargs: subprocess.CompletedProcess([], 0, stdout="bingbong", stderr=""),
     )
 
     result = CliRunner().invoke(cli.main, ["status"])
@@ -326,7 +327,7 @@ def test_duck_others_success_allows_chime(tmp_path, monkeypatch, capsys):
     (outdir / "silence.wav").write_bytes(b"\0")
 
     monkeypatch.setattr(audio, "duck_others", lambda: None)
-    monkeypatch.setattr(audio, "play_file", lambda _: print("played"))
+    monkeypatch.setattr(audio, "play_file", lambda p: print("played"))
 
     notify.notify_time(outdir=outdir)
     out = capsys.readouterr().out
@@ -364,7 +365,7 @@ def test_doctor_rotates_oversize_log(isolate_xdg, monkeypatch):
     log_dir.mkdir(parents=True, exist_ok=True)
 
     # Force a tiny rotate threshold
-    import bingbong.cli as _cli  # noqa: PLC0415
+    import bingbong.cli as _cli
 
     monkeypatch.setattr(_cli, "LOG_ROTATE_SIZE", 1)
 
@@ -376,7 +377,7 @@ def test_doctor_rotates_oversize_log(isolate_xdg, monkeypatch):
     monkeypatch.setattr(
         subprocess,
         "run",
-        lambda *_, **__: subprocess.CompletedProcess([], 0, stdout="bingbong", stderr=""),
+        lambda *args, **kwargs: subprocess.CompletedProcess([], 0, stdout="bingbong", stderr=""),
     )
 
     result = CliRunner().invoke(cli.main, ["doctor"])

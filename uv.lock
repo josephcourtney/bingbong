@@ -43,11 +43,10 @@ wheels = [
 
 [[package]]
 name = "bingbong"
-version = "0.0.25"
+version = "0.0.24"
 source = { editable = "." }
 dependencies = [
     { name = "click" },
-    { name = "croniter" },
     { name = "sounddevice" },
     { name = "soundfile" },
     { name = "tomlkit" },
@@ -67,7 +66,6 @@ dev = [
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "pytest-randomly" },
-    { name = "pytest-timeout" },
     { name = "ruff" },
     { name = "shapely" },
     { name = "svgpathtools" },
@@ -76,7 +74,6 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "click", specifier = ">=8.1.8" },
-    { name = "croniter", specifier = ">=6.0.0" },
     { name = "sounddevice", specifier = ">=0.5.1" },
     { name = "soundfile", specifier = ">=0.13.1" },
     { name = "tomlkit", specifier = ">=0.13.2" },
@@ -96,7 +93,6 @@ dev = [
     { name = "pytest", specifier = ">=8.3.5" },
     { name = "pytest-cov", specifier = ">=6.0.0" },
     { name = "pytest-randomly", specifier = ">=3.16.0" },
-    { name = "pytest-timeout", specifier = ">=2.4.0" },
     { name = "ruff", specifier = ">=0.11.0" },
     { name = "shapely", specifier = ">=2.1.0" },
     { name = "svgpathtools", specifier = ">=1.6.1" },
@@ -246,19 +242,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/56/b0/d968ecdbe6fe0a863de7169bbe9e8a476868959f3af24981f6a10d2b6924/coverage-7.8.0-cp313-cp313t-win32.whl", hash = "sha256:379fe315e206b14e21db5240f89dc0774bdd3e25c3c58c2c733c99eca96f1ada", size = 214909 },
     { url = "https://files.pythonhosted.org/packages/87/e9/d6b7ef9fecf42dfb418d93544af47c940aa83056c49e6021a564aafbc91f/coverage-7.8.0-cp313-cp313t-win_amd64.whl", hash = "sha256:2e4b6b87bb0c846a9315e3ab4be2d52fac905100565f4b92f02c445c8799e257", size = 216068 },
     { url = "https://files.pythonhosted.org/packages/59/f1/4da7717f0063a222db253e7121bd6a56f6fb1ba439dcc36659088793347c/coverage-7.8.0-py3-none-any.whl", hash = "sha256:dbf364b4c5e7bae9250528167dfe40219b62e2d573c854d74be213e1e52069f7", size = 203435 },
-]
-
-[[package]]
-name = "croniter"
-version = "6.0.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "python-dateutil" },
-    { name = "pytz" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/ad/2f/44d1ae153a0e27be56be43465e5cb39b9650c781e001e7864389deb25090/croniter-6.0.0.tar.gz", hash = "sha256:37c504b313956114a983ece2c2b07790b1f1094fe9d81cc94739214748255577", size = 64481 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/07/4b/290b4c3efd6417a8b0c284896de19b1d5855e6dbdb97d2a35e68fa42de85/croniter-6.0.0-py2.py3-none-any.whl", hash = "sha256:2f878c3856f17896979b2a4379ba1f09c83e374931ea15cc835c5dd2eee9b368", size = 25468 },
 ]
 
 [[package]]
@@ -722,18 +705,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/c0/68/d221ed7f4a2a49a664da721b8e87b52af6dd317af2a6cb51549cf17ac4b8/pytest_randomly-3.16.0.tar.gz", hash = "sha256:11bf4d23a26484de7860d82f726c0629837cf4064b79157bd18ec9d41d7feb26", size = 13367 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/22/70/b31577d7c46d8e2f9baccfed5067dd8475262a2331ffb0bfdf19361c9bde/pytest_randomly-3.16.0-py3-none-any.whl", hash = "sha256:8633d332635a1a0983d3bba19342196807f6afb17c3eef78e02c2f85dade45d6", size = 8396 },
-]
-
-[[package]]
-name = "pytest-timeout"
-version = "2.4.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "pytest" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/ac/82/4c9ecabab13363e72d880f2fb504c5f750433b2b6f16e99f4ec21ada284c/pytest_timeout-2.4.0.tar.gz", hash = "sha256:7e68e90b01f9eff71332b25001f85c75495fc4e3a836701876183c4bcfd0540a", size = 17973 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/fa/b6/3127540ecdf1464a00e5a01ee60a1b09175f6913f0644ac748494d9c4b21/pytest_timeout-2.4.0-py3-none-any.whl", hash = "sha256:c42667e5cdadb151aeb5b26d114aff6bdf5a907f176a007a30b940d3d865b5c2", size = 14382 },
 ]
 
 [[package]]
