@@ -7,23 +7,31 @@ import soundfile as sf
 
 from .ffmpeg import concat, make_silence
 from .paths import ensure_outdir
+import logging
+import subprocess
+from pathlib import Path
+
 
 # --- Constants ---
 DATA = files("bingbong.data")
 POP = str(DATA / "pop.wav")
 CHIME = str(DATA / "chime.wav")
+SILENCE = str(DATA / "silence.wav")
 POPS_PER_CLUSTER = 3
 
 
 def play_file(path: Path) -> None:
+    logger = logging.getLogger("bingbong.audio")
     try:
-        data, fs = sf.read(str(path), dtype="float32")
-        sd.play(data, fs)
-        sd.wait()
-    except (sf.LibsndfileError, OSError, RuntimeError) as err:
-        logger = logging.getLogger("bingbong.audio")
-        logger.exception("Failed to play audio: %s", path)
-        # so that our pytest capsys picks it up:
+        # fire-and-forget via afplay
+        subprocess.run(["afplay", str(path)], check=True)
+    except FileNotFoundError:
+        # afplay isn’t on PATH
+        logger.exception("`afplay` command not found; cannot play audio: %s", path)
+        print("Failed to play audio: `afplay` not found")
+    except subprocess.CalledProcessError as err:
+        # playback failed
+        logger.exception("Playback failed for %s: %s", path, err)
         print(f"Failed to play audio: {err}")
 
 
@@ -40,14 +48,20 @@ def make_hours(outdir: Path | None = None) -> None:
     if outdir is None:
         outdir = ensure_outdir()
     for hour in range(1, 13):
-        clusters = [POP] * (hour - 1)
+        remaining_ = hour
+        clusters = []
+        for i in range(hour):
+            if remaining_ > POPS_PER_CLUSTER:
+                clusters.extend([POP] * POPS_PER_CLUSTER + [SILENCE])
+                remaining_ -= POPS_PER_CLUSTER
+            else:
+                clusters.extend([POP] * remaining_ + [SILENCE])
+
         output = outdir / f"hour_{hour}.wav"
-        concat([CHIME, *clusters], output, outdir=outdir)
-        concat([str(outdir / "silence.wav"), CHIME, *clusters], output, outdir=outdir)
+        concat([SILENCE, CHIME, SILENCE, *clusters], output, outdir=outdir)
 
 
 def build_all(outdir: Path | None = None) -> None:
     make_silence(outdir)
-
     make_quarters(outdir)
     make_hours(outdir)
