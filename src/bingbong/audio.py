@@ -1,6 +1,7 @@
 import logging
 from importlib.resources import files
 from pathlib import Path
+import math
 
 import sounddevice as sd
 import soundfile as sf
@@ -49,16 +50,16 @@ def make_hours(outdir: Path | None = None) -> None:
         outdir = ensure_outdir()
     for hour in range(1, 13):
         remaining_ = hour
-        clusters = []
-        for i in range(hour):
+        cluster = []
+        for _ in range(math.ceil(hour / POPS_PER_CLUSTER)):
             if remaining_ > POPS_PER_CLUSTER:
-                clusters.extend([POP] * POPS_PER_CLUSTER + [SILENCE])
+                cluster.extend([POP] * POPS_PER_CLUSTER + [SILENCE])
                 remaining_ -= POPS_PER_CLUSTER
             else:
-                clusters.extend([POP] * remaining_ + [SILENCE])
+                cluster.extend([POP] * remaining_ + [SILENCE])
 
         output = outdir / f"hour_{hour}.wav"
-        concat([SILENCE, CHIME, SILENCE, *clusters], output, outdir=outdir)
+        concat([SILENCE, CHIME, SILENCE, *cluster], output, outdir=outdir)
 
 
 def build_all(outdir: Path | None = None) -> None:
