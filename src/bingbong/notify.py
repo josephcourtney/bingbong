@@ -20,9 +20,9 @@ def resolve_chime_path(hour: int, nearest: int, outdir: Path | None = None) -> P
     """Return the path to the correct chime file."""
     if outdir is None:
         outdir = ensure_outdir()
-
     if nearest == 0:
-        hour = (hour % 12) + 1
+        hour %= 12
+        hour = hour if hour != 12 else 12
         return outdir / f"hour_{hour}.wav"
 
     return outdir / f"quarter_{nearest}.wav"
@@ -111,6 +111,11 @@ def notify_time(outdir: Path | None = None) -> None:
     hour = now.hour % 12 or 12
     nearest = nearest_quarter(now.minute)
     chime_path = resolve_chime_path(hour, nearest, outdir)
+
+    print(f"{now=}")
+    print(f"{hour=}")
+    print(f"{nearest=}")
+    print(f"{chime_path=}")
 
     # 4) Rebuild if missing
     if not chime_path.exists() and not _ensure_chime_exists(chime_path):
