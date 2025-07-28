@@ -4,6 +4,7 @@ import shutil
 import subprocess  # noqa: S404
 import tempfile
 import tomllib
+from importlib.metadata import version as pkg_version
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -34,15 +35,24 @@ logger.addHandler(handler)
 
 
 @click.group()
-def main():
+@click.option("--dry-run", is_flag=True, help="Simulate actions without changes.")
+@click.version_option(pkg_version("bingbong"))
+@click.pass_context
+def main(ctx: click.Context, dry_run: bool) -> None:
     """Time-based macOS notifier."""
+    ctx.ensure_object(dict)
+    ctx.obj["dry_run"] = dry_run
 
 
 @main.command()
-def build():
+@click.pass_context
+def build(ctx: click.Context) -> None:
     """Build composite chime/quarter audio files."""
     if not ffmpeg_available():
         click.echo("ffmpeg is not available")
+        return
+    if ctx.obj.get("dry_run"):
+        click.echo("DRY RUN: would build audio files")
         return
     try:
         audio.build_all()
@@ -52,33 +62,49 @@ def build():
 
 
 @main.command()
-def install():
+@click.pass_context
+def install(ctx: click.Context) -> None:
     """Install launchctl job."""
+    if ctx.obj.get("dry_run"):
+        click.echo("DRY RUN: would install launchctl job")
+        return
     launchctl.install()
     click.echo("Installed launchctl job.")
 
 
 @main.command()
-def uninstall():
+@click.pass_context
+def uninstall(ctx: click.Context) -> None:
     """Remove launchctl job."""
+    if ctx.obj.get("dry_run"):
+        click.echo("DRY RUN: would uninstall launchctl job")
+        return
     launchctl.uninstall()
     click.echo("Uninstalled launchctl job.")
 
 
 @main.command()
-def clean():
+@click.pass_context
+def clean(ctx: click.Context) -> None:
     """Delete generated audio files."""
     outdir = ensure_outdir()
     if outdir.exists():
-        shutil.rmtree(outdir)
-        click.echo(f"Removed: {outdir}")
+        if ctx.obj.get("dry_run"):
+            click.echo(f"DRY RUN: would remove {outdir}")
+        else:
+            shutil.rmtree(outdir)
+            click.echo(f"Removed: {outdir}")
     else:
         click.echo("No generated files found.")
 
 
 @main.command()
-def chime():
+@click.pass_context
+def chime(ctx: click.Context) -> None:
     """Play the appropriate chime for the current time."""
+    if ctx.obj.get("dry_run"):
+        click.echo("DRY RUN: would play chime")
+        return
     notify.notify_time()
     click.echo("Chime played.")
 
@@ -188,28 +214,38 @@ def logs(*, clear: bool) -> None:
 
 
 @main.command()
-@click.option("--minutes", type=int, help="Pause for N minutes.")
-@click.option("--until-tomorrow", is_flag=True, help="Pause until 8 AM tomorrow.")
-def pause(minutes, until_tomorrow):
-    """Temporarily silence all chimes."""
-    now = datetime.now().astimezone()
-    if minutes is not None and until_tomorrow:
-        msg = "Cannot combine --minutes with --until-tomorrow"
-        raise click.UsageError(msg)
-
-    if until_tomorrow:
-        # assume wake at 8 AM local time
-        tomorrow = (now + timedelta(days=1)).replace(hour=8, minute=0, second=0, microsecond=0)
-        expiry = tomorrow
-    elif minutes:
-        expiry = now + timedelta(minutes=minutes)
-    else:
-        msg = "Specify --minutes or --until-tomorrow"
-        raise click.UsageError(msg)
-
-    # write expiry to file
+@click.option("--minutes", type=int)
+@click.option("--until", "until", type=str)
+@click.pass_context
+def silence(ctx: click.Context, minutes: int | None, until: str | None) -> None:
+    """Pause or resume chimes."""
     outdir = ensure_outdir()
     pause_file = outdir / ".pause_until"
+    now = datetime.now().astimezone()
+
+    if minutes is not None and until:
+        raise click.UsageError("Cannot combine --minutes with --until")
+
+    if minutes is None and not until:
+        if pause_file.exists():
+            if ctx.obj.get("dry_run"):
+                click.echo("DRY RUN: would remove pause file")
+            else:
+                pause_file.unlink()
+            click.echo("🔔 Chimes resumed.")
+            return
+        raise click.UsageError("Specify --minutes or --until")
+
+    expiry: datetime
+    if until:
+        expiry = datetime.fromisoformat(until)
+    else:
+        expiry = now + timedelta(minutes=minutes)
+
+    if ctx.obj.get("dry_run"):
+        click.echo(f"DRY RUN: would pause until {expiry:%Y-%m-%d %H:%M}")
+        return
+
     pause_file.write_text(expiry.isoformat())
     click.echo(f"🔕 Chimes paused until {expiry:%Y-%m-%d %H:%M}")
 
@@ -297,13 +333,3 @@ def doctor():
     raise SystemExit(0 if ok else 1)
 
 
-@main.command()
-def unpause():
-    """Resume chimes immediately (cancel any pending pause)."""
-    outdir = ensure_outdir()
-    pause_file = outdir / ".pause_until"
-    if pause_file.exists():
-        pause_file.unlink()
-        click.echo("🔔 Chimes resumed.")
-    else:
-        click.echo("🔔 Chimes were not paused.")

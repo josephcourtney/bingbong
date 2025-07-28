@@ -8,6 +8,12 @@ from bingbong import audio
 from bingbong.cli import main
 
 
+def test_cli_version():
+    result = CliRunner().invoke(main, ["--version"])
+    assert result.exit_code == 0
+    assert "0.0.29" in result.output
+
+
 def test_import():
     assert main
 
@@ -25,6 +31,17 @@ def test_cli_build_and_clean(monkeypatch, tmp_path):
     result = runner.invoke(main, ["clean"])
     assert result.exit_code == 0
     assert not tmp_path.exists()
+
+
+def test_dry_run_build(monkeypatch, tmp_path):
+    monkeypatch.setattr("bingbong.cli.ensure_outdir", lambda: tmp_path)
+    called = {"built": False}
+    monkeypatch.setattr("bingbong.audio.build_all", lambda *_: called.__setitem__("built", True))
+    runner = CliRunner()
+    result = runner.invoke(main, ["--dry-run", "build"])
+    assert result.exit_code == 0
+    assert not called["built"]
+    assert "DRY RUN" in result.output
 
 
 def test_cli_install_and_uninstall(monkeypatch):
@@ -221,13 +238,13 @@ def test_cli_doctor_failure_exit(monkeypatch, tmp_path):
 
 
 @freeze_time("2025-05-06 10:00:00")
-def test_pause_minutes_creates_file(tmp_path, monkeypatch):
+def test_silence_minutes_creates_file(tmp_path, monkeypatch):
     # Make bingbong write into tmp_path
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
     monkeypatch.setattr("bingbong.cli.ensure_outdir", lambda: tmp_path)
 
     runner = CliRunner()
-    result = runner.invoke(main, ["pause", "--minutes", "5"])
+    result = runner.invoke(main, ["silence", "--minutes", "5"])
     assert result.exit_code == 0
     pause_file = tmp_path / ".pause_until"
     assert pause_file.exists()
@@ -238,26 +255,41 @@ def test_pause_minutes_creates_file(tmp_path, monkeypatch):
 
 
 @freeze_time("2025-05-06 22:30:00")
-def test_pause_until_tomorrow(tmp_path, monkeypatch):
+def test_silence_until(tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
     monkeypatch.setattr("bingbong.cli.ensure_outdir", lambda: tmp_path)
 
     runner = CliRunner()
-    result = runner.invoke(main, ["pause", "--until-tomorrow"])
+    result = runner.invoke(main, ["silence", "--until", "2025-05-07 08:00"])
     assert result.exit_code == 0
     pause_file = tmp_path / ".pause_until"
     assert pause_file.exists()
 
     content = pause_file.read_text().strip()
-    # tomorrow at 08:00 local
     assert content.startswith("2025-05-07T08:00:00")
 
 
-def test_pause_mutually_exclusive(tmp_path, monkeypatch):
+def test_silence_mutually_exclusive(tmp_path, monkeypatch):
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
     monkeypatch.setattr("bingbong.cli.ensure_outdir", lambda: tmp_path)
 
     runner = CliRunner()
-    result = runner.invoke(main, ["pause", "--minutes", "5", "--until-tomorrow"])
+    result = runner.invoke(main, ["silence", "--minutes", "5", "--until", "2025-05-07 08:00"])
     assert result.exit_code != 0
-    assert "Cannot combine --minutes with --until-tomorrow" in result.output
+    assert "Cannot combine --minutes with --until" in result.output
+
+
+def test_silence_toggle(tmp_path, monkeypatch):
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
+    monkeypatch.setattr("bingbong.cli.ensure_outdir", lambda: tmp_path)
+
+    runner = CliRunner()
+    # First pause for 5 minutes
+    runner.invoke(main, ["silence", "--minutes", "5"])
+    assert (tmp_path / ".pause_until").exists()
+
+    # Now toggle without args to unpause
+    result = runner.invoke(main, ["silence"])
+    assert result.exit_code == 0
+    assert "Chimes resumed" in result.output
+    assert not (tmp_path / ".pause_until").exists()
