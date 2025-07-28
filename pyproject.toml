@@ -32,11 +32,9 @@
     "pytest-cov>=6.0.0",
     "pytest>=8.3.5",
     "pytest-randomly>=3.16.0",
-    "awl",
     "commitizen>=4.6.0",
     "freezegun>=1.5.1",
     "matplotlib>=3.10.1",
-    "jkit",
     "pillow>=11.2.1",
     "shapely>=2.1.0",
     "svgpathtools>=1.6.1",
@@ -112,10 +110,6 @@
 
 [tool.coverage.xml]
   output = ".coverage.xml"
-
-[tool.uv.sources]
-  awl  = { git = "https://github.com/josephcourtney/awl" }
-  jkit = { path = "../jkit" }
 
 [tool.commitizen]
   name                     = "cz_conventional_commits"
