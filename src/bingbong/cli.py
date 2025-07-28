@@ -1,16 +1,22 @@
 import logging
+import re
 import shutil
 import subprocess  # noqa: S404
 import tempfile
+import tomllib
 from datetime import datetime, timedelta
 from pathlib import Path
 
 import click
+from croniter import croniter
+from tomlkit import dumps
 
 from . import audio, launchctl, notify
 from .ffmpeg import ffmpeg_available
 from .notify import is_paused
 from .paths import ensure_outdir
+
+LOG_ROTATE_SIZE = 10 * 1024 * 1024  # rotate logs larger than 10 MB
 
 with tempfile.NamedTemporaryFile(prefix="bingbong-out-", delete=False) as out_fh:
     STDOUT_LOG = Path(out_fh.name)
@@ -78,23 +84,91 @@ def chime():
 
 
 @main.command()
+def configure():
+    """Interactive wizard to write config.toml."""
+    outdir = ensure_outdir()
+    cfg_path = outdir / "config.toml"
+
+    click.echo("Enter cron expression for chime schedule:")
+    cron_expr = input().strip()
+    if not croniter.is_valid(cron_expr):
+        click.echo("Invalid cron")
+        raise SystemExit(1)
+
+    suppress_list: list[str] = []
+    click.echo("Enable suppression windows? (y/n)")
+    if input().lower().startswith("y"):
+        while True:
+            click.echo("Enter suppression window as HH:MM-HH:MM:")
+            rng = input().strip()
+            if not re.match(r"^[0-2]\d:[0-5]\d-[0-2]\d:[0-5]\d$", rng):
+                click.echo("Invalid time range")
+                raise SystemExit(1)
+            suppress_list.append(rng)
+            click.echo("Add another suppression window? (y/n)")
+            if not input().lower().startswith("y"):
+                break
+
+    click.echo("Respect Do Not Disturb? (y/n)")
+    respect = input().lower().startswith("y")
+
+    click.echo("Enter timezone:")
+    tz = input().strip()
+
+    click.echo("Enter custom sound paths, comma-separated:")
+    paths = [p.strip() for p in input().split(",") if p.strip()]
+
+    cfg = {
+        "chime_schedule": cron_expr,
+        "suppress_schedule": suppress_list,
+        "respect_dnd": respect,
+        "timezone": tz,
+        "custom_sounds": paths,
+    }
+    cfg_path.write_text(dumps(cfg))
+    click.echo(f"Wrote configuration to {cfg_path}")
+
+
+@main.command()
 def status():
-    """Check whether the launchctl job is currently loaded."""
+    """Check whether the launchctl job is loaded and show schedule info."""
+    # 1) Service load state
     launchctl_path = shutil.which("launchctl")
-    result = subprocess.run(  # noqa: S603
-        [launchctl_path, "list"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    result = subprocess.run([launchctl_path, "list"], capture_output=True, text=True, check=False)  # noqa: S603
     if PLIST_LABEL in result.stdout:
         click.echo("✅ Service is loaded.")
     else:
         click.echo("❌ Service is NOT loaded.")
+
+    # 2) If user has a config, show next-run and suppression/pause info
+    outdir = ensure_outdir()
+    cfg_path = outdir / "config.toml"
+    if not cfg_path.exists():
+        return
+
+    cfg = tomllib.loads(cfg_path.read_text())
+    expr = cfg.get("chime_schedule", "")
     now = datetime.now().astimezone()
-    pause_until = is_paused(ensure_outdir(), now)
+
+    # Next scheduled chime
+    try:
+        nxt = croniter(expr, now).get_next(datetime)
+        click.echo(f"Next chime: {nxt:%H:%M}")
+    except Exception:
+        click.echo("Invalid cron in configuration")
+
+    # Scheduled suppression windows
+    for rng in cfg.get("suppress_schedule", []):
+        start_s, end_s = rng.split("-")
+        st = datetime.strptime(start_s, "%H:%M").time()  # noqa: DTZ007
+        en = datetime.strptime(end_s, "%H:%M").time()  # noqa: DTZ007
+        if st <= now.time() <= en:
+            click.echo(f"Suppressed until {en:%H:%M}")
+
+    # Manual pause
+    pause_until = is_paused(outdir, now)
     if pause_until:
-        click.echo(f"🔕 Chimes paused until {pause_until:%Y-%m-%d %H:%M}")
+        click.echo(f"Chimes paused until {pause_until:%Y-%m-%d %H:%M}")
 
 
 @main.command()
@@ -201,12 +275,26 @@ def doctor():
         click.echo("[ ] FFmpeg cannot be found. Is it installed?")
 
     click.echo("")
-    # Exit code summary
-    if plist_loaded and not missing_files and ffmpeg_available():
-        click.echo("Hooray! All systems go.")
-        raise SystemExit(0)
-    click.echo("Woe! One or more checks failed.")
-    raise SystemExit(1)
+    # 4) Logs directory and rotation
+    logs = Path.home() / "Library" / "Logs"
+    try:
+        if logs.exists():
+            # rotate if oversized
+            main_log = logs / "bingbong.log"
+            if main_log.exists() and main_log.stat().st_size > LOG_ROTATE_SIZE:
+                rotated = logs / "bingbong.log.1"
+                main_log.rename(rotated)
+            # list all
+            for f in sorted(logs.iterdir()):
+                if f.name.startswith("bingbong.log"):
+                    click.echo(f.name)
+    except PermissionError:
+        click.echo("cannot write logs")
+
+    # final summary
+    ok = plist_loaded and not missing_files and ffmpeg_available()
+    click.echo("Hooray! All systems go." if ok else "Woe! One or more checks failed.")
+    raise SystemExit(0 if ok else 1)
 
 
 @main.command()

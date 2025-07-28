@@ -1,17 +1,13 @@
 import logging
+import math
 from importlib.resources import files
 from pathlib import Path
-import math
 
 import sounddevice as sd
 import soundfile as sf
 
 from .ffmpeg import concat, make_silence
 from .paths import ensure_outdir
-import logging
-import subprocess
-from pathlib import Path
-
 
 # --- Constants ---
 DATA = files("bingbong.data")
@@ -22,18 +18,31 @@ POPS_PER_CLUSTER = 3
 
 
 def play_file(path: Path) -> None:
-    logger = logging.getLogger("bingbong.audio")
+    logging.getLogger("bingbong.audio")
+    if not path.exists():
+        print("Failed to play audio: file not found")
+        return
+
     try:
-        # fire-and-forget via afplay
-        subprocess.run(["afplay", str(path)], check=True)
-    except FileNotFoundError:
-        # afplay isn’t on PATH
-        logger.exception("`afplay` command not found; cannot play audio: %s", path)
-        print("Failed to play audio: `afplay` not found")
-    except subprocess.CalledProcessError as err:
-        # playback failed
-        logger.exception("Playback failed for %s: %s", path, err)
+        data, fs = sf.read(str(path))
+    except (RuntimeError, OSError) as err:
         print(f"Failed to play audio: {err}")
+        return
+
+    try:
+        sd.play(data, fs)
+        sd.wait()
+    except (RuntimeError, OSError) as err:
+        print(f"Failed to play audio: {err}")
+        return
+
+
+def duck_others() -> None:
+    """Lower the volume of other applications while we chime.
+
+    No-op stub; override in real implementations.
+    """
+    return
 
 
 def make_quarters(outdir: Path | None = None) -> None:

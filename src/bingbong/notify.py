@@ -10,6 +10,8 @@ from .paths import ensure_outdir
 
 logger = logging.getLogger("bingbong.notify")
 
+HOURS_ON_CLOCK = 12
+
 
 def nearest_quarter(minute: int) -> int:
     """Convert minute to nearest quarter (0-3)."""
@@ -21,10 +23,9 @@ def resolve_chime_path(hour: int, nearest: int, outdir: Path | None = None) -> P
     if outdir is None:
         outdir = ensure_outdir()
     if nearest == 0:
-        hour %= 12
-        hour = hour if hour != 12 else 12
-        return outdir / f"hour_{hour}.wav"
-
+        # on the hour → play next hour's chime cluster
+        next_hour = (hour % HOURS_ON_CLOCK) + 1
+        return outdir / f"hour_{next_hour}.wav"
     return outdir / f"quarter_{nearest}.wav"
 
 
@@ -121,5 +122,45 @@ def notify_time(outdir: Path | None = None) -> None:
     if not chime_path.exists() and not _ensure_chime_exists(chime_path):
         return
 
+    # 4) Rebuild if missing
+    if not chime_path.exists() and not _ensure_chime_exists(chime_path):
+        return
+
+    # 5) Duck other audio if possible
+    try:
+        audio.duck_others()
+    except OSError as e:
+        # print to stdout so tests can see it
+        print(f"warning: {e}")
+
     # 5) Play the chime
     audio.play_file(chime_path)
+
+
+def on_wake(outdir: Path | None = None) -> None:
+    """Play any hourly chimes we missed since the last run, then record the current time in a state file."""
+    if outdir is None:
+        outdir = ensure_outdir()
+
+    state = outdir / ".last_run"
+    now = datetime.now().astimezone()
+
+    # first run: just record time
+    if not state.exists():
+        state.write_text(now.isoformat())
+        return
+
+    # read last run; if malformed, treat as first run
+    try:
+        last = datetime.fromisoformat(state.read_text())
+    except (ValueError, OSError):
+        last = now
+
+    # for each hour boundary we passed, play that hour chime
+    for hr in range(last.hour + 1, now.hour + 1):
+        path = resolve_chime_path(hr, 0, outdir)
+        if path.exists():
+            audio.play_file(path)
+
+    # record new timestamp
+    state.write_text(now.isoformat())
