@@ -1,0 +1,1 @@
+- After any file is edited, run `ruff check` and `ruff format` to automatically fix linting errors and standardize formatting.
