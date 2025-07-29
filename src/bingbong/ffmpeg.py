@@ -1,20 +1,28 @@
+from __future__ import annotations
+
 import shutil
 import subprocess  # noqa: S404
+from functools import cache
 from importlib.resources import files
 from pathlib import Path
 
 from .paths import ensure_outdir
 
+__all__ = ["ffmpeg_available", "concat", "make_silence", "find_ffmpeg"]
+
 DATA = files("bingbong.data")
 POP = str(DATA / "pop.wav")
 CHIME = str(DATA / "chime.wav")
 
-FFMPEG = shutil.which("ffmpeg")
+@cache
+def find_ffmpeg() -> str | None:
+    """Return the path to ffmpeg or ``None`` if not found."""
+    return shutil.which("ffmpeg")
 
 
 def ffmpeg_available() -> bool:
     """Return True if the ffmpeg binary is on PATH."""
-    return FFMPEG is not None
+    return find_ffmpeg() is not None
 
 
 def concat(inputs: list[Path], output: Path, outdir: Path | None = None) -> None:
@@ -31,7 +39,7 @@ def concat(inputs: list[Path], output: Path, outdir: Path | None = None) -> None
         for file in inputs:
             f.write(f"file '{file}'\n")
 
-    ffmpeg_bin = shutil.which("ffmpeg")
+    ffmpeg_bin = find_ffmpeg()
     if not ffmpeg_bin:
         msg = "ffmpeg is not available on this system."
         raise RuntimeError(msg)
@@ -70,7 +78,7 @@ def make_silence(outdir: Path | None = None, duration: int = 1) -> None:
     outdir.mkdir(parents=True, exist_ok=True)
 
     silence_path = outdir / "silence.wav"
-    ffmpeg_bin = shutil.which("ffmpeg")
+    ffmpeg_bin = find_ffmpeg()
     if not ffmpeg_bin:
         msg = "ffmpeg is not available on this system."
         raise RuntimeError(msg)
