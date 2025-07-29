@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-from __future__ import annotations
-
 from dataclasses import dataclass, field
 
 from croniter import croniter
-
 
 __all__ = ["ChimeScheduler"]
 
@@ -30,11 +27,14 @@ class ChimeScheduler:
     suppress_schedule: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
+        """Validate cron expressions on init."""
         if not croniter.is_valid(self.chime_schedule):
-            raise ValueError("Invalid cron expression")
+            msg = "Invalid cron expression"
+            raise ValueError(msg)
         for expr in self.suppress_schedule:
             if not croniter.is_valid(expr):
-                raise ValueError("Invalid cron expression")
+                msg = "Invalid cron expression"
+                raise ValueError(msg)
 
     def minutes_for_chime(self) -> list[str]:
         """Return list of minutes when chimes should occur."""

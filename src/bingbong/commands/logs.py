@@ -1,18 +1,23 @@
 from __future__ import annotations
 
+import os
 import time
-import tempfile
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import click
-from rich.console import Console
 from rich.text import Text
 
-from ..console import get_console
+from bingbong.console import get_console
+
+if TYPE_CHECKING:
+    from rich.console import Console
 
 
-STDOUT_LOG = Path(tempfile.gettempdir()) / "bingbong.out"
-STDERR_LOG = Path(tempfile.gettempdir()) / "bingbong.err"
+XDG_DATA_HOME = Path(os.getenv("XDG_DATA_HOME", Path.home() / ".local" / "share"))
+DEFAULT_LOG_DIR = XDG_DATA_HOME / "bingbong"
+STDOUT_LOG = DEFAULT_LOG_DIR / "bingbong.out"
+STDERR_LOG = DEFAULT_LOG_DIR / "bingbong.err"
 
 
 def _print_log(log: Path, *, lines: int | None, follow: bool, console: Console) -> None:
@@ -39,7 +44,9 @@ def _print_log(log: Path, *, lines: int | None, follow: bool, console: Console) 
                 else:
                     time.sleep(0.5)
     else:
-        all_lines = read_tail(log, lines) if lines else log.read_text(encoding="utf-8", errors="replace").splitlines()
+        all_lines = (
+            read_tail(log, lines) if lines else log.read_text(encoding="utf-8", errors="replace").splitlines()
+        )
         print_lines(all_lines)
 
 

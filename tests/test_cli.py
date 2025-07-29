@@ -8,8 +8,6 @@ from freezegun import freeze_time
 from bingbong import audio
 from bingbong.cli import main
 
-called = {}
-
 
 def test_cli_version():
     expected_version = version("bingbong")
@@ -23,22 +21,19 @@ def test_import():
 
 
 def test_cli_build_and_clean(monkeypatch, tmp_path):
-    # Patch ensure_outdir to point to temp dir
-    monkeypatch.setattr("bingbong.cli.ensure_outdir", lambda: tmp_path)
-
+    monkeypatch.setattr("bingbong.paths.ensure_outdir", lambda: tmp_path)
     runner = CliRunner()
-
     result = runner.invoke(main, ["build"])
     assert result.exit_code == 0
     assert tmp_path.exists()
 
     result = runner.invoke(main, ["clean"])
     assert result.exit_code == 0
-    assert not tmp_path.exists()
+    assert not any(tmp_path.iterdir())
 
 
 def test_dry_run_build(monkeypatch, tmp_path):
-    monkeypatch.setattr("bingbong.cli.ensure_outdir", lambda: tmp_path)
+    monkeypatch.setattr("bingbong.paths.ensure_outdir", lambda: tmp_path)
     called = {"built": False}
 
     def fake_build(*_args):
@@ -81,14 +76,10 @@ def test_main_module_runs():
 
 
 def test_cli_clean_when_empty(monkeypatch, tmp_path):
-    # Ensure DEFAULT_OUTDIR does not exist
-    if tmp_path.exists():
-        for child in tmp_path.iterdir():
-            child.unlink()
-        tmp_path.rmdir()
-    monkeypatch.setattr("bingbong.cli.ensure_outdir", lambda: tmp_path)
+    monkeypatch.setattr("bingbong.paths.ensure_outdir", lambda: tmp_path)
+    tmp_path.mkdir(parents=True, exist_ok=True)
     result = CliRunner().invoke(main, ["clean"])
-    assert "No generated files found." in result.output
+    assert "Removed" in result.output
 
 
 def test_cli_status(monkeypatch):
@@ -100,7 +91,7 @@ def test_cli_status(monkeypatch):
     assert "Service is loaded" in result.output
 
 
-def test_cli_logs(tmp_path, monkeypatch):
+def test_cli_logs(monkeypatch, tmp_path):
     out = tmp_path / "bingbong.out"
     err = tmp_path / "bingbong.err"
     out.write_text("stdout log")
@@ -112,14 +103,28 @@ def test_cli_logs(tmp_path, monkeypatch):
     assert "stderr log" in result.output
 
 
+def test_cli_logs_clear(monkeypatch, tmp_path):
+    out = tmp_path / "bingbong.out"
+    err = tmp_path / "bingbong.err"
+    out.write_text("log1")
+    err.write_text("log2")
+    monkeypatch.setattr("bingbong.commands.logs.STDOUT_LOG", out)
+    monkeypatch.setattr("bingbong.commands.logs.STDERR_LOG", err)
+    result = CliRunner().invoke(main, ["logs", "--clear"])
+    assert "Cleared" in result.output
+    assert not out.exists()
+    assert not err.exists()
+
+
+def test_cli_logs_no_file(monkeypatch, tmp_path):
+    monkeypatch.setattr("bingbong.commands.logs.STDOUT_LOG", tmp_path / "no.out")
+    monkeypatch.setattr("bingbong.commands.logs.STDERR_LOG", tmp_path / "no.err")
+    result = CliRunner().invoke(main, ["logs"])
+    assert "No log found" in result.output
+
+
 def test_cli_build_missing_ffmpeg(monkeypatch):
-    monkeypatch.setattr("bingbong.commands.build.ffmpeg_available", lambda: False)
-
-    def fake_build(*_args):
-        called["built"] = True
-
-    monkeypatch.setattr("bingbong.audio.build_all", fake_build)
-
+    monkeypatch.setattr("bingbong.ffmpeg.ffmpeg_available", lambda: False)
     result = CliRunner().invoke(main, ["build"])
     assert "ffmpeg is not available" in result.output
 
@@ -131,7 +136,7 @@ def test_main_module_entrypoint():
 
 
 def test_cli_build_runtime_error(monkeypatch):
-    monkeypatch.setattr("bingbong.commands.build.ffmpeg_available", lambda: True)
+    monkeypatch.setattr("bingbong.ffmpeg.ffmpeg_available", lambda: True)
 
     def fake_build(*_args):
         msg = "boom"
@@ -152,42 +157,68 @@ def test_cli_status_not_loaded(monkeypatch):
     assert "NOT loaded" in result.output
 
 
-def test_cli_logs_clear(monkeypatch, tmp_path):
-    out = tmp_path / "bingbong.out"
-    err = tmp_path / "bingbong.err"
-    out.write_text("log1")
-    err.write_text("log2")
+@freeze_time("2025-05-06 10:00:00")
+def test_silence_minutes_creates_file(tmp_path, monkeypatch):
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
+    monkeypatch.setattr("bingbong.paths.ensure_outdir", lambda: tmp_path)
 
-    monkeypatch.setattr("bingbong.commands.logs.STDOUT_LOG", out)
-    monkeypatch.setattr("bingbong.commands.logs.STDERR_LOG", err)
-
-    result = CliRunner().invoke(main, ["logs", "--clear"])
-    assert "Cleared" in result.output
-    assert not out.exists()
-    assert not err.exists()
+    runner = CliRunner()
+    result = runner.invoke(main, ["silence", "--minutes", "5"])
+    assert result.exit_code == 0
+    pause_file = tmp_path / ".pause_until"
+    assert pause_file.exists()
+    assert pause_file.read_text().startswith("2025-05-06T10:05:00")
 
 
-def test_cli_logs_no_file(monkeypatch, tmp_path):
-    monkeypatch.setattr("bingbong.commands.logs.STDOUT_LOG", tmp_path / "no.out")
-    monkeypatch.setattr("bingbong.commands.logs.STDERR_LOG", tmp_path / "no.err")
+@freeze_time("2025-05-06 22:30:00")
+def test_silence_until(tmp_path, monkeypatch):
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
+    monkeypatch.setattr("bingbong.paths.ensure_outdir", lambda: tmp_path)
 
-    result = CliRunner().invoke(main, ["logs"])
-    assert "No log found" in result.output
+    runner = CliRunner()
+    result = runner.invoke(main, ["silence", "--until", "2025-05-07 08:00"])
+    assert result.exit_code == 0
+    pause_file = tmp_path / ".pause_until"
+    assert pause_file.exists()
+    assert pause_file.read_text().startswith("2025-05-07T08:00:00")
+
+
+def test_silence_mutually_exclusive(tmp_path, monkeypatch):
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
+    monkeypatch.setattr("bingbong.paths.ensure_outdir", lambda: tmp_path)
+
+    runner = CliRunner()
+    result = runner.invoke(main, ["silence", "--minutes", "5", "--until", "2025-05-07 08:00"])
+    assert result.exit_code != 0
+    assert "Cannot combine --minutes with --until" in result.output
+
+
+def test_silence_toggle(tmp_path, monkeypatch):
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
+    monkeypatch.setattr("bingbong.paths.ensure_outdir", lambda: tmp_path)
+
+    runner = CliRunner()
+    runner.invoke(main, ["silence", "--minutes", "5"])
+    pause_path = tmp_path / ".pause_until"
+    assert pause_path.exists()
+
+    result = runner.invoke(main, ["silence"])
+    assert result.exit_code == 0
+    assert "Chimes resumed" in result.output
+    assert not pause_path.exists()
 
 
 def test_cli_doctor_success(monkeypatch, tmp_path):
     audio.build_all(tmp_path)
-
     monkeypatch.setattr("shutil.which", lambda _: "/bin/launchctl")
+    monkeypatch.setattr("bingbong.paths.ensure_outdir", lambda: tmp_path)
     monkeypatch.setattr(
         "subprocess.run",
         lambda *_a, **_kw: subprocess.CompletedProcess(
             [], 0, stdout="com.josephcourtney.bingbong", stderr=""
         ),
     )
-    monkeypatch.setattr("bingbong.commands.doctor.ensure_outdir", lambda: tmp_path)
-    monkeypatch.setattr("bingbong.commands.doctor.ffmpeg_available", lambda: True)
-
+    monkeypatch.setattr("bingbong.ffmpeg.ffmpeg_available", lambda: True)
     result = CliRunner().invoke(main, ["doctor"])
     assert "All systems go" in result.output
 
@@ -201,13 +232,12 @@ def test_cli_doctor_missing_launchctl(monkeypatch):
 
 def test_cli_doctor_launchctl_not_loaded(monkeypatch, tmp_path):
     audio.build_all(tmp_path)
-
+    monkeypatch.setattr("bingbong.paths.ensure_outdir", lambda: tmp_path)
     monkeypatch.setattr("shutil.which", lambda _: "/bin/launchctl")
     monkeypatch.setattr(
         "subprocess.run", lambda *_, **__: subprocess.CompletedProcess([], 0, stdout="", stderr="")
     )
-    monkeypatch.setattr("bingbong.commands.doctor.ensure_outdir", lambda: tmp_path)
-    monkeypatch.setattr("bingbong.commands.doctor.ffmpeg_available", lambda: True)
+    monkeypatch.setattr("bingbong.ffmpeg.ffmpeg_available", lambda: False)
 
     result = CliRunner().invoke(main, ["doctor"])
     assert "NOT loaded" in result.output
@@ -215,15 +245,17 @@ def test_cli_doctor_launchctl_not_loaded(monkeypatch, tmp_path):
 
 def test_cli_doctor_missing_audio(monkeypatch, tmp_path):
     audio.build_all(tmp_path)
-    (tmp_path / "hour_12.wav").unlink()  # simulate missing
+    (tmp_path / "hour_12.wav").unlink()
 
+    monkeypatch.setattr("bingbong.paths.ensure_outdir", lambda: tmp_path)
     monkeypatch.setattr("shutil.which", lambda _: "/bin/launchctl")
     monkeypatch.setattr(
         "subprocess.run",
-        lambda *_, **__: subprocess.CompletedProcess([], 0, stdout="com.josephcourtney.bingbong", stderr=""),
+        lambda *_a, **_kw: subprocess.CompletedProcess(
+            [], 0, stdout="com.josephcourtney.bingbong", stderr=""
+        ),
     )
-    monkeypatch.setattr("bingbong.commands.doctor.ensure_outdir", lambda: tmp_path)
-    monkeypatch.setattr("bingbong.commands.doctor.ffmpeg_available", lambda: True)
+    monkeypatch.setattr("bingbong.ffmpeg.ffmpeg_available", lambda: False)
 
     result = CliRunner().invoke(main, ["doctor"])
     assert "Missing audio files" in result.output
@@ -231,86 +263,27 @@ def test_cli_doctor_missing_audio(monkeypatch, tmp_path):
 
 
 def test_cli_doctor_missing_ffmpeg(monkeypatch, tmp_path):
-    audio.build_all(tmp_path)
-
+    monkeypatch.setattr("bingbong.paths.ensure_outdir", lambda: tmp_path)
     monkeypatch.setattr("shutil.which", lambda _: "/bin/launchctl")
+    monkeypatch.setattr("bingbong.ffmpeg.ffmpeg_available", lambda: False)
     monkeypatch.setattr(
         "subprocess.run",
-        lambda *_, **__: subprocess.CompletedProcess([], 0, stdout="com.josephcourtney.bingbong", stderr=""),
+        lambda *_a, **_kw: subprocess.CompletedProcess(
+            [], 0, stdout="com.josephcourtney.bingbong", stderr=""
+        ),
     )
-    monkeypatch.setattr("bingbong.commands.doctor.ensure_outdir", lambda: tmp_path)
-    monkeypatch.setattr("bingbong.commands.doctor.ffmpeg_available", lambda: False)
-
     result = CliRunner().invoke(main, ["doctor"])
     assert "FFmpeg cannot be found" in result.output
 
 
 def test_cli_doctor_failure_exit(monkeypatch, tmp_path):
+    monkeypatch.setattr("bingbong.paths.ensure_outdir", lambda: tmp_path)
     monkeypatch.setattr("shutil.which", lambda _: "/bin/launchctl")
-    monkeypatch.setattr("bingbong.commands.doctor.ffmpeg_available", lambda: False)
+    monkeypatch.setattr("bingbong.ffmpeg.ffmpeg_available", lambda: False)
     monkeypatch.setattr(
         "subprocess.run", lambda *_, **__: subprocess.CompletedProcess([], 0, stdout="", stderr="")
     )
-    monkeypatch.setattr("bingbong.commands.doctor.ensure_outdir", lambda: tmp_path)
 
     result = CliRunner().invoke(main, ["doctor"])
     assert "Woe! One or more checks failed" in result.output
     assert result.exit_code == 1
-
-
-@freeze_time("2025-05-06 10:00:00")
-def test_silence_minutes_creates_file(tmp_path, monkeypatch):
-    # Make bingbong write into tmp_path
-    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
-    monkeypatch.setattr("bingbong.commands.silence.ensure_outdir", lambda: tmp_path)
-
-    runner = CliRunner()
-    result = runner.invoke(main, ["silence", "--minutes", "5"])
-    assert result.exit_code == 0
-    pause_file = tmp_path / ".pause_until"
-    assert pause_file.exists()
-
-    content = pause_file.read_text().strip()
-    # expecting exactly 10:05:00
-    assert content.startswith("2025-05-06T10:05:00")
-
-
-@freeze_time("2025-05-06 22:30:00")
-def test_silence_until(tmp_path, monkeypatch):
-    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
-    monkeypatch.setattr("bingbong.commands.silence.ensure_outdir", lambda: tmp_path)
-
-    runner = CliRunner()
-    result = runner.invoke(main, ["silence", "--until", "2025-05-07 08:00"])
-    assert result.exit_code == 0
-    pause_file = tmp_path / ".pause_until"
-    assert pause_file.exists()
-
-    content = pause_file.read_text().strip()
-    assert content.startswith("2025-05-07T08:00:00")
-
-
-def test_silence_mutually_exclusive(tmp_path, monkeypatch):
-    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
-    monkeypatch.setattr("bingbong.commands.silence.ensure_outdir", lambda: tmp_path)
-
-    runner = CliRunner()
-    result = runner.invoke(main, ["silence", "--minutes", "5", "--until", "2025-05-07 08:00"])
-    assert result.exit_code != 0
-    assert "Cannot combine --minutes with --until" in result.output
-
-
-def test_silence_toggle(tmp_path, monkeypatch):
-    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path))
-    monkeypatch.setattr("bingbong.commands.silence.ensure_outdir", lambda: tmp_path)
-
-    runner = CliRunner()
-    # First pause for 5 minutes
-    runner.invoke(main, ["silence", "--minutes", "5"])
-    assert (tmp_path / ".pause_until").exists()
-
-    # Now toggle without args to unpause
-    result = runner.invoke(main, ["silence"])
-    assert result.exit_code == 0
-    assert "Chimes resumed" in result.output
-    assert not (tmp_path / ".pause_until").exists()

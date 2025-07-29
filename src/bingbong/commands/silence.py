@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from pathlib import Path
 
 import click
 
-from ..paths import ensure_outdir
-from ..console import ok
+import bingbong.paths as _paths
+from bingbong.console import ok
 
 
 @click.command()
@@ -15,7 +14,7 @@ from ..console import ok
 @click.pass_context
 def silence(ctx: click.Context, minutes: int | None, until: str | None) -> None:
     """Pause or resume chimes."""
-    outdir = ensure_outdir()
+    outdir = _paths.ensure_outdir()
     pause_file = outdir / ".pause_until"
     now = datetime.now().astimezone()
 

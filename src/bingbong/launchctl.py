@@ -1,12 +1,12 @@
+import shutil
 import subprocess  # noqa: S404
 import sys
-import shutil
 import tomllib
 from importlib.resources import files
 from pathlib import Path
 
-from .scheduler import ChimeScheduler
 from .renderer import MinimalRenderer, PlistRenderer
+from .scheduler import ChimeScheduler
 
 LAUNCH_AGENTS = Path.home() / "Library" / "LaunchAgents"
 PLIST_PATH = LAUNCH_AGENTS / "com.josephcourtney.bingbong.plist"

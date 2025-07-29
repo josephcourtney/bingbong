@@ -6,10 +6,10 @@ from bingbong import launchctl
 
 
 class DummyFile:
-    def __truediv__(self, other):  # noqa: D105
+    def __truediv__(self, other):
         return self
 
-    def read_text(self, encoding="utf-8"):  # noqa: ARG002, PLR6301
+    def read_text(self, encoding="utf-8"):
         return "<plist/>"
 
 
@@ -49,7 +49,7 @@ def test_launchctl_install_creates_dir_and_load(monkeypatch, tmp_path):
     monkeypatch.setattr(launchctl, "PLIST_PATH", dummy_plist)
 
     calls = []
-    monkeypatch.setattr(subprocess, "run", lambda args, check: calls.append(args))  # noqa: ARG005
+    monkeypatch.setattr(subprocess, "run", lambda args, check: calls.append(args))
 
     launchctl.install()
 
@@ -70,7 +70,7 @@ def test_launchctl_uninstall_removes_and_unloads(monkeypatch, tmp_path):
 
     monkeypatch.setattr(launchctl, "PLIST_PATH", dummy_plist)
     calls = []
-    monkeypatch.setattr(subprocess, "run", lambda args, check: calls.append(args))  # noqa: ARG005
+    monkeypatch.setattr(subprocess, "run", lambda args, check: calls.append(args))
 
     # Should not raise
     launchctl.uninstall()

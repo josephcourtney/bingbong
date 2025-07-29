@@ -1,16 +1,16 @@
 from __future__ import annotations
 
-import subprocess  # noqa: S404
 import shutil
+import subprocess  # noqa: S404
 import tomllib
 from datetime import datetime
-from croniter import CroniterBadCronError, croniter
 
 import click
+from croniter import CroniterBadCronError, croniter
 
-from ..notify import is_paused
-from ..paths import ensure_outdir
-from ..console import ok
+from bingbong.console import ok
+from bingbong.notify import is_paused
+from bingbong.paths import ensure_outdir
 
 PLIST_LABEL = "com.josephcourtney.bingbong"
 
@@ -19,7 +19,7 @@ PLIST_LABEL = "com.josephcourtney.bingbong"
 def status() -> None:
     """Check whether the launchctl job is loaded and show schedule info."""
     launchctl_path = shutil.which("launchctl")
-    result = subprocess.run([launchctl_path, "list"], capture_output=True, text=True, check=False)
+    result = subprocess.run([launchctl_path, "list"], capture_output=True, text=True, check=False)  # noqa: S603
     if PLIST_LABEL in result.stdout:
         ok("\N{WHITE HEAVY CHECK MARK} Service is loaded.")
     else:

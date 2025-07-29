@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-from typing import Optional
-
 from rich.console import Console
 from rich.text import Text
 
-__all__ = ["ok", "warn", "err", "get_console"]
+__all__ = ["err", "get_console", "ok", "warn"]
 
 _default_console = Console()
 

@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import click
 
-from .. import audio
-from ..ffmpeg import ffmpeg_available
-from ..console import ok, err
+from bingbong import audio
+from bingbong.console import err, ok
+from bingbong.ffmpeg import ffmpeg_available
 
 
 @click.command()

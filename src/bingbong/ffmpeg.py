@@ -4,15 +4,19 @@ import shutil
 import subprocess  # noqa: S404
 from functools import cache
 from importlib.resources import files
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from .paths import ensure_outdir
 
-__all__ = ["ffmpeg_available", "concat", "make_silence", "find_ffmpeg"]
+if TYPE_CHECKING:
+    from pathlib import Path
+
+__all__ = ["concat", "ffmpeg_available", "find_ffmpeg", "make_silence"]
 
 DATA = files("bingbong.data")
 POP = str(DATA / "pop.wav")
 CHIME = str(DATA / "chime.wav")
+
 
 @cache
 def find_ffmpeg() -> str | None:

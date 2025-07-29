@@ -1,5 +1,5 @@
-from bingbong.scheduler import ChimeScheduler
 from bingbong.renderer import MinimalRenderer
+from bingbong.scheduler import ChimeScheduler
 
 
 def test_scheduler_minutes_for_chime():
@@ -13,7 +13,8 @@ def test_scheduler_invalid_cron():
     except ValueError:
         pass
     else:
-        assert False, "expected ValueError"
+        msg = "expected ValueError"
+        raise AssertionError(msg)
 
 
 def test_minutes_for_suppression():
@@ -25,4 +26,5 @@ def test_minimal_renderer():
     tpl = "<plist/>"
     rend = MinimalRenderer()
     out = rend.render(["0"], ["30"], tpl)
-    assert "Minute" in out and tpl in out
+    assert "Minute" in out
+    assert tpl in out

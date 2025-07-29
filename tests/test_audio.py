@@ -18,7 +18,7 @@ def test_play_file_exception(monkeypatch, tmp_path, capsys):
     dummy_file.write_text("not really wav data")
 
     # Patch soundfile.read to raise an error
-    def fake_read(_path, dtype=None):  # noqa: ARG001
+    def fake_read(_path, dtype=None):
         msg = "bad format"
         raise RuntimeError(msg)
 

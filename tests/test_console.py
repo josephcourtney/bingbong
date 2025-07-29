@@ -1,4 +1,4 @@
-from bingbong.console import ok, warn, err
+from bingbong.console import err, ok, warn
 
 
 def test_console_no_color(capsys):

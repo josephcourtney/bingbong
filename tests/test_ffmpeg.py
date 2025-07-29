@@ -22,7 +22,7 @@ def test_make_silence_subprocess_failure(monkeypatch, tmp_path):
     # Point FFMPEG at something so list file is created, but fail the run
     monkeypatch.setattr(shutil, "which", lambda _: "/usr/bin/ffmpeg")
 
-    def fake_run(args, check):  # noqa: ARG001
+    def fake_run(args, check):
         raise subprocess.CalledProcessError(1, args)
 
     monkeypatch.setattr("bingbong.ffmpeg.subprocess.run", fake_run)

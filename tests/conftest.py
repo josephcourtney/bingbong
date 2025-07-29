@@ -8,14 +8,8 @@ import pytest
 MAX_OUTPUT_LINES = 32
 
 # Provide dummy sounddevice/soundfile modules so tests don't require system libs
-sys.modules.setdefault(
-    "sounddevice",
-    types.SimpleNamespace(play=lambda *_a, **_k: None, wait=lambda: None),
-)
-sys.modules.setdefault(
-    "soundfile",
-    types.SimpleNamespace(read=lambda *_a, **_k: ([], 44100)),
-)
+sys.modules["sounddevice"] = types.SimpleNamespace(play=lambda *_a, **_k: None, wait=lambda: None)
+sys.modules["soundfile"] = types.SimpleNamespace(read=lambda *_a, **_k: ([], 44100))
 
 
 @pytest.hookimpl(tryfirst=True)

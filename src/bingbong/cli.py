@@ -1,10 +1,7 @@
 import logging
 import re
 import shutil
-import subprocess  # noqa: S404
 import tempfile
-import tomllib
-from datetime import datetime, timedelta
 from importlib.metadata import version as pkg_version
 from pathlib import Path
 
@@ -13,10 +10,22 @@ from croniter import croniter
 from rich.console import Console
 from tomlkit import dumps
 
-from .commands import build as build_cmd, doctor as doctor_cmd, logs as logs_cmd, silence as silence_cmd, status as status_cmd
-
-from . import audio, launchctl, notify
-from .notify import is_paused
+from . import launchctl, notify
+from .commands import (
+    build as build_cmd,
+)
+from .commands import (
+    doctor as doctor_cmd,
+)
+from .commands import (
+    logs_cmd,
+)
+from .commands import (
+    silence as silence_cmd,
+)
+from .commands import (
+    status as status_cmd,
+)
 from .paths import ensure_outdir
 
 LOG_ROTATE_SIZE = 10 * 1024 * 1024  # rotate logs larger than 10 MB
@@ -46,8 +55,6 @@ def main(ctx: click.Context, *, dry_run: bool) -> None:
     """Time-based macOS notifier."""
     ctx.ensure_object(dict)
     ctx.obj["dry_run"] = dry_run
-
-
 
 
 @main.command()
@@ -144,10 +151,8 @@ def configure():
     click.echo(f"Wrote configuration to {cfg_path}")
 
 
-
-main.add_command(build_cmd.build)
-main.add_command(doctor_cmd.doctor)
-main.add_command(logs_cmd.logs)
-main.add_command(silence_cmd.silence)
-main.add_command(status_cmd.status)
-
+main.add_command(build_cmd)
+main.add_command(doctor_cmd)
+main.add_command(logs_cmd)
+main.add_command(silence_cmd)
+main.add_command(status_cmd)
