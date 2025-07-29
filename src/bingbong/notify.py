@@ -122,10 +122,6 @@ def notify_time(outdir: Path | None = None) -> None:
     if not chime_path.exists() and not _ensure_chime_exists(chime_path):
         return
 
-    # 4) Rebuild if missing
-    if not chime_path.exists() and not _ensure_chime_exists(chime_path):
-        return
-
     # 5) Duck other audio if possible
     try:
         audio.duck_others()
@@ -133,7 +129,7 @@ def notify_time(outdir: Path | None = None) -> None:
         # print to stdout so tests can see it
         print(f"warning: {e}")
 
-    # 5) Play the chime
+    # 6) Play the chime
     audio.play_file(chime_path)
 
 

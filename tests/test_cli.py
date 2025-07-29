@@ -1,5 +1,6 @@
 import subprocess
 import sys
+from importlib.metadata import version
 
 from click.testing import CliRunner
 from freezegun import freeze_time
@@ -7,11 +8,14 @@ from freezegun import freeze_time
 from bingbong import audio
 from bingbong.cli import main
 
+called = {}
+
 
 def test_cli_version():
+    expected_version = version("bingbong")
     result = CliRunner().invoke(main, ["--version"])
     assert result.exit_code == 0
-    assert "0.0.29" in result.output
+    assert expected_version in result.output
 
 
 def test_import():
@@ -36,7 +40,12 @@ def test_cli_build_and_clean(monkeypatch, tmp_path):
 def test_dry_run_build(monkeypatch, tmp_path):
     monkeypatch.setattr("bingbong.cli.ensure_outdir", lambda: tmp_path)
     called = {"built": False}
-    monkeypatch.setattr("bingbong.audio.build_all", lambda *_: called.__setitem__("built", True))
+
+    def fake_build(*_args):
+        called["built"] = True
+
+    monkeypatch.setattr("bingbong.audio.build_all", fake_build)
+
     runner = CliRunner()
     result = runner.invoke(main, ["--dry-run", "build"])
     assert result.exit_code == 0
@@ -105,7 +114,12 @@ def test_cli_logs(tmp_path, monkeypatch):
 
 def test_cli_build_missing_ffmpeg(monkeypatch):
     monkeypatch.setattr("bingbong.cli.ffmpeg_available", lambda: False)
-    monkeypatch.setattr("bingbong.audio.build_all", lambda: None)
+
+    def fake_build(*_args):
+        called["built"] = True
+
+    monkeypatch.setattr("bingbong.audio.build_all", fake_build)
+
     result = CliRunner().invoke(main, ["build"])
     assert "ffmpeg is not available" in result.output
 
@@ -118,8 +132,15 @@ def test_main_module_entrypoint():
 
 def test_cli_build_runtime_error(monkeypatch):
     monkeypatch.setattr("bingbong.cli.ffmpeg_available", lambda: True)
-    monkeypatch.setattr("bingbong.audio.build_all", lambda: (_ for _ in ()).throw(RuntimeError("boom")))
+
+    def fake_build(*_args):
+        msg = "boom"
+        raise RuntimeError(msg)
+
+    monkeypatch.setattr("bingbong.audio.build_all", fake_build)
+
     result = CliRunner().invoke(main, ["build"])
+    assert result.exit_code == 0
     assert "boom" in result.output
 
 

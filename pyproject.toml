@@ -1,11 +1,13 @@
 # =================================== project ====================================
 [project]
   name = "bingbong"
-  version = "0.0.29"
+  version = "0.0.30"
   description = "bing, bong!"
   readme = "README.md"
-  authors = [{ name = "", email = "" }]
-  urls = { "Homepage" = "", "Bug Tracker" = "" }
+  authors = [
+    { name = "Joseph M Courtney", email = "Joseph.M.Courtney@gmail.com" },
+  ]
+  urls = { "Homepage" = "https://github.com/josephcourtney/bingbong", "Bug Tracker" = "https://github.com/josephcourtney/bingbong/issues" }
   license = { text = "GPL-3.0-only" }
   classifiers = [
     "Development Status :: 3 - Alpha",
@@ -17,6 +19,7 @@
   dependencies = [
     "click>=8.1.8",
     "croniter>=6.0.0",
+    "rich>=14.1.0",
     "sounddevice>=0.5.1",
     "soundfile>=0.13.1",
     "tomlkit>=0.13.2",

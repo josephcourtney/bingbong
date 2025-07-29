@@ -1,36 +1,71 @@
-- Add a --dry-run flag that applies to every subcommand. It should act exactly like normal but should make no changes to files or settings. After the normal stdout and stderr output, it should list out every action that would have been taken.
-- Add a `configure` subcommand
-  - Prompt for chime schedule, suppression windows, timezone, and custom sounds.
-  - Print out the updated settings, indicating changes, and ask for confirmation before writing to file.
-  - Store settings in the current config file if it exists, or in the default location otherwise.
-- Enhance status reporting.
-  - Show:
-    - next scheduled chime time
-    - active suppression source (manual vs. DND)
-    - current configuration path
-  - Use clear labels like “Next chime: 14:00 (in 45 min)”.
-- Make feedback and error messaging consistent
-  - Always prefix messages with context (“OK:”, “WARN:”, “ERROR:”).
-  - Handle missing dependencies uniformly at startup.
-  - Surface rebuild results explicitly.
-- Unify pause interface. Merge `pause` and `unpause` into a single `silence [--until YYYY‑MM‑DD HH:MM | --minutes N]` command with auto‑toggle.
-- Enhance log management. 
-  - `logs --follow`
-  - `logs --lines N`
-  - rotate logs automatically when exceeding `LOG_ROTATE_SIZE`
-  - display rotated files in `status` and `doctor`
-- use `rich` for color and formatting
-  - success: green
-  - warning: yellow
-  - errors: red
-  - align output widths and use monospace tables for summaries
-  - offer a `--no‑color` switch for environments that don’t support ANSI styling.
-- Add documentation and examples.
-  - Include a “Quickstart” section in README with common workflows and sample cron snippets.
-  - Provide default config templates and explain XDG_DATA_HOME vs. macOS defaults.
-- Implement shell‐completion scripts for bash, zsh, fish, and PowerShell.
-- Add a `version` command or `--version` flag to report the current release.
-- Allow users to customize log file paths and configure verbosity levels in the config file.
-- Extend the test suite to cover the new commands, and options
-- Add runtime telemetry (opt‑in) for error reporting and usage statistics.
-- Document audio‑backend requirements and config file schema in the README.
+## 1 • Refactor & Architecture
+
+- **Extract core domain objects**
+  - `ChimeScheduler` dataclass to own cron parsing and suppression logic.  
+  - Move validation of `suppress_schedule` cron into this class.
+  - Unit-test `minutes_for_chime()` & `minutes_for_suppression()`.
+
+- **Introduce rendering strategies**
+  - `PlistRenderer` protocol with `MinimalRenderer` (👍 now) and `FullRenderer` (🔮 future).  
+  - `launchctl.install()` picks the renderer instead of string-concat.
+
+- **Modular command layout**
+  - Create `bingbong/commands/` package; one file per Click command: `build.py`, `doctor.py`, `logs.py`, `silence.py`, `status.py`, etc.  
+  - `cli.py` becomes a thin dispatcher that imports these commands.  
+  - Add `__all__` glue for auto-discovery.
+
+- **Consolidated console helpers**
+  - New module `bingbong.console` with `ok()`, `warn()`, `err()` wrappers using *rich*.  
+  - Replace ad-hoc `print` / `logger.info` inside CLI.
+
+- **Remove duplicate rebuild block**
+  - Delete second “Rebuild if missing” guard in `notify.notify_time()`.
+
+- **Replace hard-coded path in plist**
+  - Render `${sys.executable}` or `shutil.which("bingbong")` into template.
+
+- **Type safety & modern Python**
+  - Add/repair annotations across `audio.py`, `ffmpeg.py`, `notify.py`.  
+  - Fix `concat()` to accept `Path` not `str`.  
+  - Promote `find_ffmpeg()` with `@cache` instead of global `FFMPEG`.  
+  - Enable Pyright “strict” after cleanup.
+
+---
+
+## 2 • Features & UX
+
+- Extend **`--dry-run`** to all commands *(unchanged)*.
+- **Log enhancements** *(unchanged)*  
+  - `--follow`, `--lines N`, log rotation tests.
+- Rich-styled **console messaging** *(re-implement with new helpers)*.
+- **Timezone & sound-path validation** *(unchanged)*.
+- Shell-completion commands *(unchanged)*.
+- Configurable logging/verbosity *(unchanged)*.
+- Optional telemetry *(unchanged)*.
+
+---
+
+## 3 • Testing
+
+- Add unit tests for `ChimeScheduler` & `PlistRenderer`
+- Add tests for new console wrappers to ensure colour disable works
+- Expand coverage for modularised commands (update existing tests).
+
+---
+
+## 4 • Cleanup
+
+- Replace remaining `print()` / bare `logger.*` in CLI paths
+- Delete legacy helpers after migration:
+  - `_print_log` in old `cli.py` → move to `commands/logs.py`.
+- Review for unnecessary subprocess shell calls; wrap with error handling (ongoing).
+
+---
+
+## 5 • Documentation
+
+- Update README with new command paths and architecture diagram.
+- Add CONTRIBUTING.md describing module layout and style conventions.
+- Document public API of `ChimeScheduler` in docstrings and MkDocs site.
+
+---

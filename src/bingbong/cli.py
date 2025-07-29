@@ -3,13 +3,16 @@ import re
 import shutil
 import subprocess  # noqa: S404
 import tempfile
+import time
 import tomllib
-from importlib.metadata import version as pkg_version
 from datetime import datetime, timedelta
+from importlib.metadata import version as pkg_version
 from pathlib import Path
 
 import click
-from croniter import croniter
+from croniter import CroniterBadCronError, croniter
+from rich.console import Console
+from rich.text import Text
 from tomlkit import dumps
 
 from . import audio, launchctl, notify
@@ -33,12 +36,14 @@ handler = logging.StreamHandler()
 handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
 logger.addHandler(handler)
 
+console = Console()
+
 
 @click.group()
 @click.option("--dry-run", is_flag=True, help="Simulate actions without changes.")
 @click.version_option(pkg_version("bingbong"))
 @click.pass_context
-def main(ctx: click.Context, dry_run: bool) -> None:
+def main(ctx: click.Context, *, dry_run: bool) -> None:
     """Time-based macOS notifier."""
     ctx.ensure_object(dict)
     ctx.obj["dry_run"] = dry_run
@@ -180,7 +185,7 @@ def status():
     try:
         nxt = croniter(expr, now).get_next(datetime)
         click.echo(f"Next chime: {nxt:%H:%M}")
-    except Exception:
+    except (CroniterBadCronError, ValueError):
         click.echo("Invalid cron in configuration")
 
     # Scheduled suppression windows
@@ -197,20 +202,53 @@ def status():
         click.echo(f"Chimes paused until {pause_until:%Y-%m-%d %H:%M}")
 
 
+def _print_log(log: Path, *, lines: int | None, follow: bool, console: Console) -> None:
+    if not log.exists():
+        console.print(Text("WARN: No log found.", style="yellow"))
+        return
+
+    def read_tail(path: Path, n: int) -> list[str]:
+        with path.open("r", encoding="utf-8", errors="replace") as f:
+            return f.readlines()[-n:]
+
+    def print_lines(lines: list[str]) -> None:
+        for line in lines:
+            console.print(Text("OK: ", style="green") + line.rstrip())
+
+    if follow:
+        console.print(Text(f"Following {log}", style="cyan"))
+        with log.open("r", encoding="utf-8", errors="replace") as f:
+            f.seek(0, 2)  # seek to end
+            while True:
+                line = f.readline()
+                if line:
+                    console.print(Text("OK: ", style="green") + line.rstrip())
+                else:
+                    time.sleep(0.5)
+    else:
+        all_lines = (
+            read_tail(log, lines) if lines else log.read_text(encoding="utf-8", errors="replace").splitlines()
+        )
+        print_lines(all_lines)
+
+
 @main.command()
 @click.option("--clear", is_flag=True, help="Clear log files instead of displaying them.")
-def logs(*, clear: bool) -> None:
+@click.option("--lines", type=int, help="Show only the last N lines of each log.")
+@click.option("--follow", is_flag=True, help="Stream appended lines in real-time.")
+@click.option("--no-color", is_flag=True, help="Disable color output.")
+def logs(*, clear: bool, lines: int | None, follow: bool, no_color: bool) -> None:
     """Display or clear the latest logs for the launchctl job."""
     for log in [STDOUT_LOG, STDERR_LOG]:
-        click.echo(f"\n--- {log} ---")
-        if log.exists():
-            if clear:
+        console.print(f"\n[bold underline]{log}[/]")
+        if clear:
+            if log.exists():
                 log.unlink()
-                click.echo("Cleared.")
+                console.print(Text("OK: Cleared.", style="green"))
             else:
-                click.echo(log.read_text())
+                console.print(Text("WARN: No log to clear.", style="yellow"))
         else:
-            click.echo("No log found.")
+            _print_log(log, lines=lines, follow=follow, console=console)
 
 
 @main.command()
@@ -224,7 +262,8 @@ def silence(ctx: click.Context, minutes: int | None, until: str | None) -> None:
     now = datetime.now().astimezone()
 
     if minutes is not None and until:
-        raise click.UsageError("Cannot combine --minutes with --until")
+        msg = "Cannot combine --minutes with --until"
+        raise click.UsageError(msg)
 
     if minutes is None and not until:
         if pause_file.exists():
@@ -234,12 +273,16 @@ def silence(ctx: click.Context, minutes: int | None, until: str | None) -> None:
                 pause_file.unlink()
             click.echo("🔔 Chimes resumed.")
             return
-        raise click.UsageError("Specify --minutes or --until")
+        msg = "Specify --minutes or --until"
+        raise click.UsageError(msg)
 
     expiry: datetime
     if until:
         expiry = datetime.fromisoformat(until)
     else:
+        if minutes is None:
+            msg = f"Cannot convert {until=} to a datetime"
+            raise ValueError(msg)
         expiry = now + timedelta(minutes=minutes)
 
     if ctx.obj.get("dry_run"):
@@ -250,11 +293,7 @@ def silence(ctx: click.Context, minutes: int | None, until: str | None) -> None:
     click.echo(f"🔕 Chimes paused until {expiry:%Y-%m-%d %H:%M}")
 
 
-@main.command()
-def doctor():
-    """Run diagnostics to verify setup and health."""
-    click.echo("Running diagnostics on bingbong.")
-
+def _check_launchctl():
     launchctl_path = shutil.which("launchctl")
     if not launchctl_path:
         click.echo("Error: 'launchctl' not found in PATH.")
@@ -267,15 +306,11 @@ def doctor():
         text=True,
         check=False,
     )
-    plist_loaded = PLIST_LABEL in result.stdout
-    if plist_loaded:
-        click.echo("[x] launchctl job is loaded.")
-    else:
-        click.echo("[ ] launchctl job is NOT loaded.")
-        click.echo("    try running `bingbong install` to load it.")
+    return PLIST_LABEL in result.stdout
 
+
+def _check_audio_assets(outdir: Path) -> list[Path]:
     # Check audio files
-    outdir = ensure_outdir()
     required_files = {
         "hour_1.wav",
         "hour_2.wav",
@@ -295,13 +330,29 @@ def doctor():
         "silence.wav",
     }
     existing_files = {p.name for p in outdir.iterdir()} if outdir.exists() else set()
-    missing_files = sorted(required_files - existing_files)
+    return sorted(required_files - existing_files)
 
-    if not missing_files:
+
+@main.command()
+def doctor():
+    """Run diagnostics to verify setup and health."""
+    click.echo("Running diagnostics on bingbong.")
+
+    plist_loaded = _check_launchctl()
+    if plist_loaded:
+        click.echo("[x] launchctl job is loaded.")
+    else:
+        click.echo("[ ] launchctl job is NOT loaded.")
+        click.echo("    try running `bingbong install` to load it.")
+
+    outdir = ensure_outdir()
+
+    missing_audio_files = _check_audio_assets(outdir)
+    if not missing_audio_files:
         click.echo(f"[x] All required audio files are present in {outdir}")
     else:
         click.echo(f"[ ] Missing audio files in {outdir}:")
-        for f in missing_files:
+        for f in missing_audio_files:
             click.echo(f"   - {f}")
         click.echo("    if FFmpeg is installed, run `bingbong build` to create them.")
 
@@ -328,8 +379,6 @@ def doctor():
         click.echo("cannot write logs")
 
     # final summary
-    ok = plist_loaded and not missing_files and ffmpeg_available()
+    ok = plist_loaded and not missing_audio_files and ffmpeg_available()
     click.echo("Hooray! All systems go." if ok else "Woe! One or more checks failed.")
     raise SystemExit(0 if ok else 1)
-
-
