@@ -1,9 +1,21 @@
 import subprocess
+import sys
+import types
 from pathlib import Path
 
 import pytest
 
 MAX_OUTPUT_LINES = 32
+
+# Provide dummy sounddevice/soundfile modules so tests don't require system libs
+sys.modules.setdefault(
+    "sounddevice",
+    types.SimpleNamespace(play=lambda *_a, **_k: None, wait=lambda: None),
+)
+sys.modules.setdefault(
+    "soundfile",
+    types.SimpleNamespace(read=lambda *_a, **_k: ([], 44100)),
+)
 
 
 @pytest.hookimpl(tryfirst=True)
@@ -33,7 +45,7 @@ def patch_play_file(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def patch_ffmpeg(monkeypatch):
-    monkeypatch.setattr("bingbong.ffmpeg.FFMPEG", "/usr/bin/ffmpeg")  # ensure FFMPEG is not None
+    monkeypatch.setattr("bingbong.ffmpeg.find_ffmpeg", lambda: "/usr/bin/ffmpeg")
 
     def fake_run(args, **_kwargs):
         # Detect silence creation
