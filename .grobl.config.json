@@ -1,5 +1,11 @@
 {
   "exclude_tree": [
+    "__pycache__/",
+    ".coverage",
+    ".grobl.config.json",
+    ".pre-commit-config.yaml",
+    ".coverage",
+    "AGENTS.md",
     "*.pyc",
     "*.egg-info",
     "*.ipynb",
@@ -14,6 +20,7 @@
     "yarn.lock"
   ],
   "exclude_print": [
+    ".gitignore",
     "LICENSE.md"
   ],
   "include_tree_tags": "tree",

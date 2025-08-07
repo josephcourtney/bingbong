@@ -30,24 +30,25 @@ def resolve_chime_path(hour: int, nearest: int, outdir: Path | None = None) -> P
 
 
 def is_paused(outdir: Path, now: datetime) -> datetime | None:
-    """Check for a valid pause file; remove it if expired or invalid."""
+    """Return the expiry if pause is active; clear file if expired/invalid."""
     pause_file = outdir / ".pause_until"
     if not pause_file.exists():
         return None
+
     try:
         expiry_raw = datetime.fromisoformat(pause_file.read_text())
-        expiry_today = now.replace(
-            hour=expiry_raw.hour,
-            minute=expiry_raw.minute,
-            second=expiry_raw.second,
-            microsecond=0,
-        )
-        if now < expiry_today:
-            return expiry_today
-    except (ValueError, OSError) as e:
-        logger.warning("Invalid pause file; removing it: %s", e)
-    pause_file.unlink(missing_ok=True)
-    return None
+    except (ValueError, OSError):
+        logger.warning("Corrupt pause file; deleting.")
+        pause_file.unlink(missing_ok=True)
+        return None
+
+    if expiry_raw.tzinfo is None:
+        expiry_raw = expiry_raw.replace(tzinfo=now.tzinfo)
+
+    if now >= expiry_raw:
+        pause_file.unlink(missing_ok=True)
+        return None
+    return expiry_raw
 
 
 def _in_dnd() -> bool:
