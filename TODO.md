@@ -1,10 +1,10 @@
-- [ ] Fix minute-type bug
+- [x] Fix minute-type bug
   - Cast `minute` to `int` in `make_schedule` or eliminate manual loops via `LaunchdSchedule.add_cron`.
-- [ ] Simplify schedule generation
+- [x] Simplify schedule generation
   - Move logic from `make_schedule()` into `bingbong.scheduler.render()`, returning a `LaunchdSchedule`.
-- [ ] Remove redundant scheduler methods
+- [x] Remove redundant scheduler methods
   - Eliminate `_minutes_from_cron` and `ChimeScheduler.minutes_for_chime()`.
-- [ ] Suppress cron translation
+- [x] Suppress cron translation
   - Properly convert suppression cron lines (`m h * * *`) into `HH:MM-HH:MM` strings for `add_suppression_window`.
 - [ ] Expose advanced `LaunchBehavior` knobs
   - Add CLI/config options to set `exit_timeout`, `throttle_interval`, `successful_exit`, and `crashed`.
