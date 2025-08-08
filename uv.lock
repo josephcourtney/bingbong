@@ -41,7 +41,7 @@ dev = [
 requires-dist = [
     { name = "click", specifier = ">=8.1.8" },
     { name = "croniter", specifier = ">=6.0.0" },
-    { name = "onginred", directory = "../onginred" },
+    { name = "onginred", specifier = ">=0.1.0" },
     { name = "pydantic", specifier = ">=2.11.7" },
     { name = "rich", specifier = ">=14.1.0" },
     { name = "sounddevice", specifier = ">=0.5.1" },
@@ -265,29 +265,15 @@ wheels = [
 
 [[package]]
 name = "onginred"
-version = "0.0.6"
-source = { directory = "../onginred" }
+version = "0.1.0"
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "croniter" },
     { name = "pydantic" },
 ]
-
-[package.metadata]
-requires-dist = [
-    { name = "croniter", specifier = ">=6.0.0" },
-    { name = "pydantic", specifier = ">=2.11.7" },
-]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "coverage", specifier = ">=7.7.0" },
-    { name = "freezegun", specifier = ">=1.5.1" },
-    { name = "pyfakefs", specifier = ">=5.9.2" },
-    { name = "pytest", specifier = ">=8.3.5" },
-    { name = "pytest-cov", specifier = ">=6.0.0" },
-    { name = "pytest-randomly", specifier = ">=3.16.0" },
-    { name = "ruff", specifier = ">=0.11.0" },
-    { name = "ty", specifier = ">=0.0.1a16" },
+sdist = { url = "https://files.pythonhosted.org/packages/2a/c2/b8171fed906d05429be08391c3157e7348be2e7934ad473f44e45abdb9e7/onginred-0.1.0.tar.gz", hash = "sha256:d7d0b5c85592df2cbcfcf2487f94b4ed15f818fca7c4e946ce2333b5b3ae96b2", size = 13568 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d4/7a/7d09589bc652234307a58654d19ac9e3b376988d976c53b7f735da7566aa/onginred-0.1.0-py3-none-any.whl", hash = "sha256:01f19d22d4b9a8502a73ae3c393e43cec988197f17c6f98bf974c9d044f4da07", size = 18141 },
 ]
 
 [[package]]

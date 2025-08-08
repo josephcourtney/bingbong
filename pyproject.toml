@@ -19,7 +19,7 @@
   dependencies = [
     "click>=8.1.8",
     "croniter>=6.0.0",
-    "onginred",
+    "onginred>=0.1.0",
     "pydantic>=2.11.7",
     "rich>=14.1.0",
     "sounddevice>=0.5.1",
@@ -139,6 +139,3 @@
     api        = "API‐layer changes"
     docs       = "Documentation"
     tests      = "Test suite changes"
-
-[tool.uv.sources]
-onginred = { path = "../onginred" }
