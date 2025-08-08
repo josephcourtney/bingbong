@@ -1,7 +1,7 @@
 # =================================== project ====================================
 [project]
   name = "bingbong"
-  version = "0.0.32"
+  version = "0.1.0"
   description = "bing, bong!"
   readme = "README.md"
   authors = [
@@ -26,7 +26,7 @@
     "soundfile>=0.13.1",
     "tomlkit>=0.13.2",
     "ty>=0.0.1a16",
-]
+  ]
 
   [project.scripts]
     bingbong = "bingbong.cli:main"
