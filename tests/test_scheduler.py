@@ -1,30 +1,22 @@
-# from bingbong.renderer import MinimalRenderer
-from bingbong.scheduler import ChimeScheduler
+import pytest
+
+from bingbong.scheduler import ChimeScheduler, render
 
 
-def test_scheduler_minutes_for_chime():
-    sched = ChimeScheduler(chime_schedule="*/15 * * * *")
-    assert sched.minutes_for_chime() == ["0", "15", "30", "45"]
+def test_render_chime_schedule():
+    cfg = ChimeScheduler(chime_schedule="*/15 * * * *")
+    sch = render(cfg)
+    minutes = {entry["Minute"] for entry in sch.time.calendar_entries}
+    assert minutes == {0, 15, 30, 45}
+    assert all(isinstance(entry["Minute"], int) for entry in sch.time.calendar_entries)
 
 
 def test_scheduler_invalid_cron():
-    try:
+    with pytest.raises(ValueError, match="Invalid cron expression"):
         ChimeScheduler(chime_schedule="bad cron")
-    except ValueError:
-        pass
-    else:
-        msg = "expected ValueError"
-        raise AssertionError(msg)
 
 
-def test_minutes_for_suppression():
-    sched = ChimeScheduler(suppress_schedule=["5 * * * *", "10 * * * *"])
-    assert sched.minutes_for_suppression() == ["5", "10"]
-
-
-# def test_minimal_renderer():
-#     tpl = "<plist/>"
-#     rend = MinimalRenderer()
-#     out = rend.render(["0"], ["30"], tpl)
-#     assert "Minute" in out
-#     assert tpl in out
+def test_render_suppression():
+    cfg = ChimeScheduler(suppress_schedule=["5 2 * * *"])
+    sch = render(cfg)
+    assert {"Hour": 2, "Minute": 5} in sch.time.calendar_entries

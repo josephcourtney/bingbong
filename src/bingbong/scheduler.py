@@ -3,20 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from croniter import croniter
+from onginred.schedule import LaunchdSchedule
 
-__all__ = ["ChimeScheduler"]
-
-
-def _minutes_from_cron(expr: str) -> list[str]:
-    m0 = expr.split(maxsplit=1)[0]
-    if m0.startswith("*/"):
-        step = int(m0[2:])
-        return [str(i) for i in range(0, 60, step)]
-    if "," in m0:
-        return m0.split(",")
-    if m0 == "*":
-        return [str(i) for i in range(60)]
-    return [m0]
+__all__ = ["ChimeScheduler", "render"]
 
 
 @dataclass(slots=True)
@@ -36,10 +25,15 @@ class ChimeScheduler:
                 msg = "Invalid cron expression"
                 raise ValueError(msg)
 
-    def minutes_for_chime(self) -> list[str]:
-        """Return list of minutes when chimes should occur."""
-        return _minutes_from_cron(self.chime_schedule)
 
-    def minutes_for_suppression(self) -> list[str]:
-        """Return list of minutes extracted from suppress cron expressions."""
-        return [expr.split()[0] for expr in self.suppress_schedule]
+def render(cfg: ChimeScheduler) -> LaunchdSchedule:
+    """Create a fully-populated :class:`LaunchdSchedule` from ``cfg``."""
+    sch = LaunchdSchedule()
+    sch.add_cron(cfg.chime_schedule)
+    for rng in cfg.suppress_schedule:
+        minute, hour, *_ = rng.split()
+        spec = f"{int(hour):02d}:{int(minute):02d}-{int(hour):02d}:{int(minute):02d}"
+        sch.time.add_suppression_window(spec)
+    sch.behavior.run_at_load = True
+    sch.behavior.keep_alive = True
+    return sch
