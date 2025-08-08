@@ -1,27 +1,42 @@
-- Improve timezone & sound-path validation in `configure()`
-- Implement shell-completion commands
-- Unify output and logging so that formatting, dealing with verbosity, etc can be dealt with in one place
-- Update README
-- Add docstrings for `ChimeScheduler` public API
-
-- **General clean-ups**
-  - Convert repetitive dry-run checks into a reusable `@dryable` decorator.
-  - Harden suppression-window parsing to handle overnight ranges (e.g. `22:00-02:00`).
-  - Remove `_render_minimal_start_calendar_interval_plist` (dead code).
-  - Introduce domain-specific `BingBongError` exceptions and replace bare `RuntimeError` / `ValueError`.
-  - Replace library-level `print()` calls with structured logging or a result object consumed by the CLI.
-  - Use `pathlib.Path` consistently (e.g. `ffmpeg.concat` inputs).
-  - Add explicit return-type annotations for Click commands.
-
-- **Audio / FFmpeg**
-  - Wrap FFmpeg interaction in an injectable `FFmpeg` class to improve testability and decouple subprocess logic.
-
-- **Tests**
-  - Add a round-trip test: render the launchd plist, then verify with `plistlib.loads()` that it is valid XML.
-  - Expand CI matrix (tox/nox) to run tests on both macOS and Linux; skip launchd-specific tests where unsupported.
-
-- **State management**
-  - Consolidate `.pause_until` and `.last_run` into a single JSON store to avoid multiple sentinel files.
-
-- **CI / Tooling**
-  - Gate Ruff and Pyright in GitHub Actions.
+- [ ] Fix minute-type bug
+  - Cast `minute` to `int` in `make_schedule` or eliminate manual loops via `LaunchdSchedule.add_cron`.
+- [ ] Simplify schedule generation
+  - Move logic from `make_schedule()` into `bingbong.scheduler.render()`, returning a `LaunchdSchedule`.
+- [ ] Remove redundant scheduler methods
+  - Eliminate `_minutes_from_cron` and `ChimeScheduler.minutes_for_chime()`.
+- [ ] Suppress cron translation
+  - Properly convert suppression cron lines (`m h * * *`) into `HH:MM-HH:MM` strings for `add_suppression_window`.
+- [ ] Expose advanced `LaunchBehavior` knobs
+  - Add CLI/config options to set `exit_timeout`, `throttle_interval`, `successful_exit`, and `crashed`.
+- [ ] Replace polling for wake detection
+  - Replace `on_wake` polling with a `SystemWake` event via `EventTriggers`.
+- [ ] Backoff on failure
+  - Add `--backoff <seconds>` flag and use it to set `ThrottleInterval` and `KeepAlive = {"Crashed": True}`.
+- [ ] Auto-reload on config change
+  - Use `FilesystemTriggers.add_watch_path()` on `~/.config/bingbong/config.toml` to restart service after edits.
+- [ ] Improve validation
+  - Harden validation for timezone strings and custom sound paths in `configure()`.
+- [ ] Add shell-completion support
+- [ ] Unify output/logging format
+  - Centralize verbosity and formatting control (currently spread across modules).
+- [ ] Document all CLI/config options
+  - Update `README.md` and CLI `--help` output to include advanced scheduling and behavior flags.
+- [ ] Wrap `ffmpeg` in a testable class
+  - Create an injectable `FFmpeg` interface to isolate subprocess logic.
+- [ ] Add docstrings for `ChimeScheduler` public API
+- [ ] Use `pathlib.Path` consistently (e.g. in `ffmpeg.concat`)
+- [ ] Convert dry-run checks to decorator
+  - Introduce a reusable `@dryable` decorator to eliminate repeated checks.
+- [ ] Replace `print()` with structured logging
+- [ ] Introduce `BingBongError` domain exception class
+- [ ] Remove dead code
+  - Delete `_render_minimal_start_calendar_interval_plist` (unused).
+- [ ] State Management
+  - [ ] Unify state files
+    - Merge `.pause_until` and `.last_run` into a single JSON-backed state file.
+- [ ] Test `launchd` plist round-trip
+  - Generate a plist with `LaunchdService.render()`, then validate it using `plistlib.loads()`.
+- [ ] Test failure/backoff scenarios
+  - Parametrize failures and confirm expected schedule behavior.
+- [ ] Cross-platform CI
+  - Stub `LaunchctlClient` on non-Darwin platforms; skip install/uninstall tests where unsupported.

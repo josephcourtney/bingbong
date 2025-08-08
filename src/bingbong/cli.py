@@ -10,7 +10,7 @@ from croniter import croniter
 from rich.console import Console
 from tomlkit import dumps
 
-from . import launchctl, notify
+from . import notify, service
 from .commands import (
     build as build_cmd,
 )
@@ -64,7 +64,7 @@ def install(ctx: click.Context) -> None:
     if ctx.obj.get("dry_run"):
         click.echo("DRY RUN: would install launchctl job")
         return
-    launchctl.install()
+    service.install()
     click.echo("Installed launchctl job.")
 
 
@@ -75,7 +75,7 @@ def uninstall(ctx: click.Context) -> None:
     if ctx.obj.get("dry_run"):
         click.echo("DRY RUN: would uninstall launchctl job")
         return
-    launchctl.uninstall()
+    service.uninstall()
     click.echo("Uninstalled launchctl job.")
 
 

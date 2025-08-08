@@ -5,7 +5,6 @@
     ".grobl.config.json",
     ".pre-commit-config.yaml",
     ".coverage",
-    "AGENTS.md",
     "*.pyc",
     "*.egg-info",
     "*.ipynb",
@@ -20,8 +19,7 @@
     "yarn.lock"
   ],
   "exclude_print": [
-    ".gitignore",
-    "LICENSE.md"
+    ".gitignore"
   ],
   "include_tree_tags": "tree",
   "include_file_tags": "file"
