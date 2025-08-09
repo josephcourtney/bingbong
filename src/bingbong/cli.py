@@ -11,22 +11,13 @@ from rich.console import Console
 from tomlkit import dumps
 
 from . import launchctl, notify
-from .commands import (
-    build as build_cmd,
-)
-from .commands import (
-    doctor as doctor_cmd,
-)
-from .commands import (
-    logs_cmd,
-)
-from .commands import (
-    silence as silence_cmd,
-)
-from .commands import (
-    status as status_cmd,
-)
+from .commands import build as build_cmd
+from .commands import doctor as doctor_cmd
+from .commands import logs_cmd
+from .commands import silence as silence_cmd
+from .commands import status as status_cmd
 from .paths import ensure_outdir
+from .utils import dryable
 
 LOG_ROTATE_SIZE = 10 * 1024 * 1024  # rotate logs larger than 10 MB
 
@@ -59,22 +50,18 @@ def main(ctx: click.Context, *, dry_run: bool) -> None:
 
 @main.command()
 @click.pass_context
-def install(ctx: click.Context) -> None:
+@dryable("would install launchctl job")
+def install(_ctx: click.Context) -> None:
     """Install launchctl job."""
-    if ctx.obj.get("dry_run"):
-        click.echo("DRY RUN: would install launchctl job")
-        return
     launchctl.install()
     click.echo("Installed launchctl job.")
 
 
 @main.command()
 @click.pass_context
-def uninstall(ctx: click.Context) -> None:
+@dryable("would uninstall launchctl job")
+def uninstall(_ctx: click.Context) -> None:
     """Remove launchctl job."""
-    if ctx.obj.get("dry_run"):
-        click.echo("DRY RUN: would uninstall launchctl job")
-        return
     launchctl.uninstall()
     click.echo("Uninstalled launchctl job.")
 
@@ -96,11 +83,9 @@ def clean(ctx: click.Context) -> None:
 
 @main.command()
 @click.pass_context
-def chime(ctx: click.Context) -> None:
+@dryable("would play chime")
+def chime(_ctx: click.Context) -> None:
     """Play the appropriate chime for the current time."""
-    if ctx.obj.get("dry_run"):
-        click.echo("DRY RUN: would play chime")
-        return
     notify.notify_time()
     click.echo("Chime played.")
 

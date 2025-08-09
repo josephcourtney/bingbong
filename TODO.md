@@ -23,12 +23,12 @@
   - Update `README.md` and CLI `--help` output to include advanced scheduling and behavior flags.
 - [ ] Wrap `ffmpeg` in a testable class
   - Create an injectable `FFmpeg` interface to isolate subprocess logic.
-- [ ] Add docstrings for `ChimeScheduler` public API
-- [ ] Use `pathlib.Path` consistently (e.g. in `ffmpeg.concat`)
-- [ ] Convert dry-run checks to decorator
+- [x] Add docstrings for `ChimeScheduler` public API
+- [x] Use `pathlib.Path` consistently (e.g. in `ffmpeg.concat`)
+- [x] Convert dry-run checks to decorator
   - Introduce a reusable `@dryable` decorator to eliminate repeated checks.
 - [ ] Replace `print()` with structured logging
-- [ ] Introduce `BingBongError` domain exception class
+- [x] Introduce `BingBongError` domain exception class
 - [ ] Remove dead code
   - Delete `_render_minimal_start_calendar_interval_plist` (unused).
 - [ ] State Management

@@ -43,7 +43,7 @@ def patch_ffmpeg(monkeypatch):
 
     def fake_run(args, **_kwargs):
         # Detect silence creation
-        if any("anullsrc" in arg for arg in args):
+        if any("anullsrc" in str(arg) for arg in args):
             path = Path(args[-1])
             path.parent.mkdir(parents=True, exist_ok=True)
             path.touch()
