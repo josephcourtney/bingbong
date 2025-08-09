@@ -132,6 +132,7 @@ def notify_time(outdir: Path | None = None) -> None:
         logger.warning("warning: %s", e)
 
     # 6) Play the chime
+    print(f"{now.isoformat()} {chime_path.name}")
     audio.play_file(chime_path)
 
 
@@ -162,6 +163,7 @@ def on_wake(outdir: Path | None = None) -> None:
         current += timedelta(hours=1)
         path = resolve_chime_path(current.hour, 0, outdir)
         if path.exists():
+            print(f"{current.isoformat()} {path.name}")
             audio.play_file(path)
 
     data["last_run"] = now.isoformat()

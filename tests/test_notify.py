@@ -94,6 +94,16 @@ def test_notify_time_quarter_3(monkeypatch, tmp_path):
     assert called["path"] == expected
 
 
+@freeze_time("2024-01-01 15:00:00")
+def test_notify_logs_time_and_file(monkeypatch, tmp_path, capsys):
+    audio.build_all(tmp_path)
+    monkeypatch.setattr(audio_mod, "play_file", lambda _path: None)
+    notify.notify_time(outdir=tmp_path)
+    captured = capsys.readouterr().out.strip()
+    assert "2024-01-01T15:00:00" in captured
+    assert "hour_4.wav" in captured
+
+
 @freeze_time("2024-01-01 10:00:00")
 def test_notify_missing_triggers_rebuild(monkeypatch, tmp_path):
     called = {"built": False, "played": None}

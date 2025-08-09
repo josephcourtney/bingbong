@@ -2,6 +2,7 @@ import json
 import subprocess
 import sys
 from importlib.metadata import version
+from pathlib import Path
 
 from click.testing import CliRunner
 from freezegun import freeze_time
@@ -67,6 +68,53 @@ def test_cli_install_and_uninstall(monkeypatch):
     assert captured["throttle_interval"] == 7
     assert captured["crashed"] is True
     assert runner.invoke(main, ["uninstall"]).exit_code == 0
+
+
+def test_cli_install_handles_existing_file(monkeypatch, tmp_path):
+    path = tmp_path / "bingbong.plist"
+    calls = {"count": 0}
+
+    def fake_install(_cfg):
+        if calls["count"] == 0:
+            calls["count"] += 1
+            raise FileExistsError(str(path))
+        calls["count"] += 1
+
+    removed = {"called": False}
+
+    def fake_unlink(self, missing_ok=False):
+        if self == path:
+            removed["called"] = True
+        else:
+            original_unlink(self, missing_ok=missing_ok)
+
+    original_unlink = Path.unlink
+    monkeypatch.setattr("bingbong.launchctl.install", fake_install)
+    monkeypatch.setattr(Path, "unlink", fake_unlink)
+
+    result = CliRunner().invoke(main, ["install"], input="y\n")
+    assert result.exit_code == 0
+    assert calls["count"] == 2
+    assert removed["called"]
+    assert str(path) in result.output
+
+
+def test_cli_install_retries_on_error(monkeypatch):
+    calls = {"count": 0}
+
+    def fake_install(_cfg):
+        if calls["count"] == 0:
+            calls["count"] += 1
+            msg = "boom"
+            raise RuntimeError(msg)
+        calls["count"] += 1
+
+    monkeypatch.setattr("bingbong.launchctl.install", fake_install)
+
+    result = CliRunner().invoke(main, ["install"], input="y\n")
+    assert result.exit_code == 0
+    assert calls["count"] == 2
+    assert "boom" in result.output
 
 
 def test_cli_chime(monkeypatch):
