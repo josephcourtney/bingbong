@@ -12,13 +12,13 @@ from croniter import croniter
 from rich.console import Console
 from tomlkit import dumps
 
-from . import launchctl, notify
+from . import console, launchctl, notify
 from .commands import build as build_cmd
 from .commands import doctor as doctor_cmd
 from .commands import logs_cmd
 from .commands import silence as silence_cmd
 from .commands import status as status_cmd
-from .paths import ensure_outdir
+from .paths import config_path, ensure_outdir
 from .scheduler import ChimeScheduler
 from .utils import dryable
 
@@ -31,12 +31,8 @@ with tempfile.NamedTemporaryFile(prefix="bingbong-err-", delete=False) as err_fh
 
 PLIST_LABEL = "com.josephcourtney.bingbong"
 
-# configure root logger once
+console.setup_logging()
 logger = logging.getLogger("bingbong")
-logger.setLevel(logging.INFO)
-handler = logging.StreamHandler()
-handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
-logger.addHandler(handler)
 
 console = Console()
 
@@ -111,6 +107,7 @@ def clean(ctx: click.Context) -> None:
 @dryable("would play chime")
 def chime(_ctx: click.Context) -> None:
     """Play the appropriate chime for the current time."""
+    notify.on_wake()
     notify.notify_time()
     click.echo("Chime played.")
 
@@ -118,8 +115,7 @@ def chime(_ctx: click.Context) -> None:
 @main.command()
 def configure():
     """Interactive wizard to write config.toml."""
-    outdir = ensure_outdir()
-    cfg_path = outdir / "config.toml"
+    cfg_path = config_path()
 
     click.echo("Enter cron expression for chime schedule:")
     cron_expr = input().strip()

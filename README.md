@@ -33,3 +33,23 @@ bingbong clean      # Remove generated audio
 bingbong logs       # Show service logs
 bingbong doctor     # Run system diagnostics
 ```
+
+### Advanced options
+
+The `install` command accepts several flags for tuning launchd behavior:
+
+- `--exit-timeout <seconds>`
+- `--throttle-interval <seconds>`
+- `--successful-exit/--no-successful-exit`
+- `--crashed/--no-crashed`
+- `--backoff <seconds>` to restart after crashes with a delay
+
+Configuration is stored at `~/.config/bingbong/config.toml` and supports:
+
+- `chime_schedule` – cron expression for chimes
+- `suppress_schedule` – list of suppression windows
+- `respect_dnd` – skip chimes during Do Not Disturb
+- `timezone` – IANA timezone name
+- `custom_sounds` – paths to override default sounds
+
+The launchd service watches this file and reloads itself when it changes.

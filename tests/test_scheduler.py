@@ -34,3 +34,12 @@ def test_render_behavior_options():
     assert sch.behavior.throttle_interval == 20
     assert sch.behavior.successful_exit is False
     assert sch.behavior.crashed is True
+
+
+def test_render_adds_watch_and_wake(monkeypatch, tmp_path):
+    monkeypatch.setattr("bingbong.scheduler.config_path", lambda: tmp_path / "config.toml")
+    sch = render(ChimeScheduler())
+    assert str(tmp_path / "config.toml") in sch.fs.watch_paths
+    assert sch.events.launch_events["com.apple.iokit.matching"]["SystemWake"] == {
+        "IOServiceClass": "IOPMrootDomain"
+    }
