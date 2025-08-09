@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 import click
 
 import bingbong.paths as _paths
+from bingbong import state
 from bingbong.console import ok
 
 
@@ -15,19 +16,20 @@ from bingbong.console import ok
 def silence(ctx: click.Context, minutes: int | None, until: str | None) -> None:
     """Pause or resume chimes."""
     outdir = _paths.ensure_outdir()
-    pause_file = outdir / ".pause_until"
     now = datetime.now().astimezone()
+    data = state.load(outdir)
 
     if minutes is not None and until:
         msg = "Cannot combine --minutes with --until"
         raise click.UsageError(msg)
 
     if minutes is None and not until:
-        if pause_file.exists():
+        if data.get("pause_until"):
             if ctx.obj.get("dry_run"):
                 ok("DRY RUN: would remove pause file")
             else:
-                pause_file.unlink()
+                data.pop("pause_until", None)
+                state.save(outdir, data)
             ok("\N{BELL} Chimes resumed.")
             return
         msg = "Specify --minutes or --until"
@@ -45,5 +47,6 @@ def silence(ctx: click.Context, minutes: int | None, until: str | None) -> None:
         ok(f"DRY RUN: would pause until {expiry:%Y-%m-%d %H:%M}")
         return
 
-    pause_file.write_text(expiry.isoformat())
+    data["pause_until"] = expiry.isoformat()
+    state.save(outdir, data)
     ok(f"🔕 Chimes paused until {expiry:%Y-%m-%d %H:%M}")

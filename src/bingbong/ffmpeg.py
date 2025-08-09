@@ -4,6 +4,7 @@ import shutil
 import subprocess  # noqa: S404
 from functools import cache
 from importlib.resources import files
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from .errors import BingBongError
@@ -11,9 +12,8 @@ from .paths import ensure_outdir
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
-    from pathlib import Path
 
-__all__ = ["concat", "ffmpeg_available", "find_ffmpeg", "make_silence"]
+__all__ = ["FFmpeg", "concat", "ffmpeg_available", "find_ffmpeg", "make_silence"]
 
 DATA = files("bingbong.data")
 POP = DATA / "pop.wav"
@@ -31,67 +31,66 @@ def ffmpeg_available() -> bool:
     return find_ffmpeg() is not None
 
 
-def concat(inputs: Sequence[Path], output: Path, outdir: Path | None = None) -> None:
-    """Concatenate .wav files into one using ffmpeg."""
-    if not ffmpeg_available():
-        msg = "ffmpeg is not available"
-        raise BingBongError(msg)
-    if outdir is None:
-        outdir = ensure_outdir()
+class FFmpeg:
+    binary: str | None
+    """Thin wrapper around the ``ffmpeg`` binary.
 
-    list_path = outdir / "temp_list.txt"
-    outdir.mkdir(parents=True, exist_ok=True)
-    with list_path.open("w", encoding="utf-8") as f:
-        for file in inputs:
-            f.write(f"file '{file}'\n")
+    Providing a class makes it easier to inject a fake during testing and keeps
+    subprocess handling isolated in one place.
+    """
 
-    ffmpeg_bin = find_ffmpeg()
-    if not ffmpeg_bin:
-        msg = "ffmpeg is not available on this system."
-        raise BingBongError(msg)
+    def __init__(self, binary: str | None = None) -> None:
+        self.binary = binary or find_ffmpeg()
 
-    try:
-        subprocess.run(  # noqa: S603
-            [
-                ffmpeg_bin,
+    def _ensure_binary(self) -> str:
+        if not self.binary:
+            msg = "ffmpeg is not available"
+            raise BingBongError(msg)
+        return self.binary
+
+    def run(self, args: list[str]) -> None:
+        """Execute ``ffmpeg`` with ``args``.
+
+        Separated for easier monkeypatching in tests.
+        """
+        _ = subprocess.run([self._ensure_binary(), *args], check=True)  # noqa: S603
+
+    def concat(self, inputs: Sequence[Path], output: Path, outdir: Path | None = None) -> None:
+        if outdir is None:
+            outdir = ensure_outdir()
+
+        list_path = outdir / "temp_list.txt"
+        outdir.mkdir(parents=True, exist_ok=True)
+        with list_path.open("w", encoding="utf-8") as f:
+            for file in inputs:
+                _ = f.write(f"file '{file}'\n")
+
+        try:
+            self.run([
                 "-y",
                 "-f",
                 "concat",
                 "-safe",
                 "0",
                 "-i",
-                list_path,
+                str(list_path),
                 "-c",
                 "copy",
-                output,
-            ],
-            check=True,
-        )
-    except subprocess.CalledProcessError as e:
-        msg = f"ffmpeg concat failed: {e}"
-        raise BingBongError(msg) from e
-    finally:
-        list_path.unlink(missing_ok=True)
+                str(output),
+            ])
+        except subprocess.CalledProcessError as e:  # pragma: no cover - passthrough
+            msg = f"ffmpeg concat failed: {e}"
+            raise BingBongError(msg) from e
+        finally:
+            list_path.unlink(missing_ok=True)
 
+    def make_silence(self, outdir: Path | None = None, duration: int = 1) -> None:
+        if outdir is None:
+            outdir = ensure_outdir()
+        outdir.mkdir(parents=True, exist_ok=True)
 
-def make_silence(outdir: Path | None = None, duration: int = 1) -> None:
-    """Generate a silent WAV of given duration."""
-    if not ffmpeg_available():
-        msg = "ffmpeg is not available"
-        raise BingBongError(msg)
-    if outdir is None:
-        outdir = ensure_outdir()
-    outdir.mkdir(parents=True, exist_ok=True)
-
-    silence_path = outdir / "silence.wav"
-    ffmpeg_bin = find_ffmpeg()
-    if not ffmpeg_bin:
-        msg = "ffmpeg is not available on this system."
-        raise BingBongError(msg)
-
-    subprocess.run(  # noqa: S603
-        [
-            ffmpeg_bin,
+        silence_path = outdir / "silence.wav"
+        self.run([
             "-y",
             "-f",
             "lavfi",
@@ -100,6 +99,26 @@ def make_silence(outdir: Path | None = None, duration: int = 1) -> None:
             "-t",
             str(duration),
             str(silence_path),
-        ],
-        check=True,
-    )
+        ])
+
+
+def concat(
+    inputs: Sequence[Path | str],
+    output: Path,
+    outdir: Path | None = None,
+    *,
+    runner: FFmpeg | None = None,
+) -> None:
+    """Concatenate ``inputs`` into ``output`` using ``ffmpeg``."""
+    path_inputs = [Path(p) for p in inputs]
+    (runner or FFmpeg()).concat(path_inputs, output, outdir)
+
+
+def make_silence(
+    outdir: Path | None = None,
+    duration: int = 1,
+    *,
+    runner: FFmpeg | None = None,
+) -> None:
+    """Generate a silent WAV of ``duration`` seconds."""
+    (runner or FFmpeg()).make_silence(outdir, duration)

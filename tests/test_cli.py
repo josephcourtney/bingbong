@@ -1,3 +1,4 @@
+import json
 import subprocess
 import sys
 from importlib.metadata import version
@@ -49,11 +50,22 @@ def test_dry_run_build(monkeypatch, tmp_path):
 
 
 def test_cli_install_and_uninstall(monkeypatch):
-    monkeypatch.setattr("bingbong.launchctl.install", lambda: None)
+    captured: dict[str, object] = {}
+
+    from dataclasses import asdict
+
+    def fake_install(cfg):
+        captured.update(asdict(cfg))
+
+    monkeypatch.setattr("bingbong.launchctl.install", fake_install)
     monkeypatch.setattr("bingbong.launchctl.uninstall", lambda: None)
 
     runner = CliRunner()
-    assert runner.invoke(main, ["install"]).exit_code == 0
+    result = runner.invoke(main, ["install", "--exit-timeout", "5", "--backoff", "7"])
+    assert result.exit_code == 0
+    assert captured["exit_timeout"] == 5
+    assert captured["throttle_interval"] == 7
+    assert captured["crashed"] is True
     assert runner.invoke(main, ["uninstall"]).exit_code == 0
 
 
@@ -165,9 +177,9 @@ def test_silence_minutes_creates_file(tmp_path, monkeypatch):
     runner = CliRunner()
     result = runner.invoke(main, ["silence", "--minutes", "5"])
     assert result.exit_code == 0
-    pause_file = tmp_path / ".pause_until"
-    assert pause_file.exists()
-    assert pause_file.read_text().startswith("2025-05-06T10:05:00")
+    state_file = tmp_path / ".state.json"
+    data = json.loads(state_file.read_text())
+    assert data["pause_until"].startswith("2025-05-06T10:05:00")
 
 
 @freeze_time("2025-05-06 22:30:00")
@@ -178,9 +190,9 @@ def test_silence_until(tmp_path, monkeypatch):
     runner = CliRunner()
     result = runner.invoke(main, ["silence", "--until", "2025-05-07 08:00"])
     assert result.exit_code == 0
-    pause_file = tmp_path / ".pause_until"
-    assert pause_file.exists()
-    assert pause_file.read_text().startswith("2025-05-07T08:00:00")
+    state_file = tmp_path / ".state.json"
+    data = json.loads(state_file.read_text())
+    assert data["pause_until"].startswith("2025-05-07T08:00:00")
 
 
 def test_silence_mutually_exclusive(tmp_path, monkeypatch):
@@ -199,13 +211,14 @@ def test_silence_toggle(tmp_path, monkeypatch):
 
     runner = CliRunner()
     runner.invoke(main, ["silence", "--minutes", "5"])
-    pause_path = tmp_path / ".pause_until"
-    assert pause_path.exists()
+    state_path = tmp_path / ".state.json"
+    assert state_path.exists()
 
     result = runner.invoke(main, ["silence"])
     assert result.exit_code == 0
     assert "Chimes resumed" in result.output
-    assert not pause_path.exists()
+    data = json.loads(state_path.read_text()) if state_path.exists() else {}
+    assert "pause_until" not in data
 
 
 def test_cli_doctor_success(monkeypatch, tmp_path):

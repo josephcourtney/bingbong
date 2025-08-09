@@ -22,6 +22,10 @@ class ChimeScheduler:
 
     chime_schedule: str = "0 * * * *"
     suppress_schedule: list[str] = field(default_factory=list)
+    exit_timeout: int | None = None
+    throttle_interval: int | None = None
+    successful_exit: bool | None = None
+    crashed: bool | None = None
 
     def __post_init__(self) -> None:
         """Validate cron expressions on init."""
@@ -44,4 +48,12 @@ def render(cfg: ChimeScheduler) -> LaunchdSchedule:
         sch.time.add_suppression_window(spec)
     sch.behavior.run_at_load = True
     sch.behavior.keep_alive = True
+    if cfg.exit_timeout is not None:
+        sch.behavior.exit_timeout = cfg.exit_timeout
+    if cfg.throttle_interval is not None:
+        sch.behavior.throttle_interval = cfg.throttle_interval
+    if cfg.successful_exit is not None:
+        sch.behavior.successful_exit = cfg.successful_exit
+    if cfg.crashed is not None:
+        sch.behavior.crashed = cfg.crashed
     return sch

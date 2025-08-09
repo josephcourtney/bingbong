@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import functools
-from typing import TYPE_CHECKING, ParamSpec, TypeVar
+from typing import TYPE_CHECKING, Concatenate, ParamSpec, TypeVar
 
 import click
 
@@ -14,7 +14,11 @@ P = ParamSpec("P")
 R = TypeVar("R")
 
 
-def dryable(message: str) -> Callable[[Callable[P, R]], Callable[P, R | None]]:
+def dryable(
+    message: str,
+) -> Callable[
+    [Callable[Concatenate[click.Context, P], R]], Callable[Concatenate[click.Context, P], R | None]
+]:
     """Skip command execution when ``--dry-run`` is set.
 
     Parameters
@@ -23,7 +27,9 @@ def dryable(message: str) -> Callable[[Callable[P, R]], Callable[P, R | None]]:
         Description of the action that would have been performed.
     """
 
-    def decorator(func: Callable[P, R]) -> Callable[P, R | None]:
+    def decorator(
+        func: Callable[Concatenate[click.Context, P], R],
+    ) -> Callable[Concatenate[click.Context, P], R | None]:
         @functools.wraps(func)
         def wrapper(ctx: click.Context, *args: P.args, **kwargs: P.kwargs) -> R | None:
             if ctx.obj.get("dry_run"):
