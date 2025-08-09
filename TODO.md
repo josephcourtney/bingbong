@@ -1,11 +1,3 @@
-- [x] Fix minute-type bug
-  - Cast `minute` to `int` in `make_schedule` or eliminate manual loops via `LaunchdSchedule.add_cron`.
-- [x] Simplify schedule generation
-  - Move logic from `make_schedule()` into `bingbong.scheduler.render()`, returning a `LaunchdSchedule`.
-- [x] Remove redundant scheduler methods
-  - Eliminate `_minutes_from_cron` and `ChimeScheduler.minutes_for_chime()`.
-- [x] Suppress cron translation
-  - Properly convert suppression cron lines (`m h * * *`) into `HH:MM-HH:MM` strings for `add_suppression_window`.
 - [ ] Expose advanced `LaunchBehavior` knobs
   - Add CLI/config options to set `exit_timeout`, `throttle_interval`, `successful_exit`, and `crashed`.
 - [ ] Replace polling for wake detection
@@ -23,12 +15,7 @@
   - Update `README.md` and CLI `--help` output to include advanced scheduling and behavior flags.
 - [ ] Wrap `ffmpeg` in a testable class
   - Create an injectable `FFmpeg` interface to isolate subprocess logic.
-- [x] Add docstrings for `ChimeScheduler` public API
-- [x] Use `pathlib.Path` consistently (e.g. in `ffmpeg.concat`)
-- [x] Convert dry-run checks to decorator
-  - Introduce a reusable `@dryable` decorator to eliminate repeated checks.
 - [ ] Replace `print()` with structured logging
-- [x] Introduce `BingBongError` domain exception class
 - [ ] Remove dead code
   - Delete `_render_minimal_start_calendar_interval_plist` (unused).
 - [ ] State Management
@@ -40,3 +27,4 @@
   - Parametrize failures and confirm expected schedule behavior.
 - [ ] Cross-platform CI
   - Stub `LaunchctlClient` on non-Darwin platforms; skip install/uninstall tests where unsupported.
+
