@@ -17,9 +17,26 @@ def test_scheduler_invalid_cron():
 
 
 def test_render_suppression():
-    cfg = ChimeScheduler(suppress_schedule=["5 2 * * *"])
+    cfg = ChimeScheduler(suppress_schedule=["02:05-02:10"])
     sch = render(cfg)
-    assert {"Hour": 2, "Minute": 5} in sch.time.calendar_entries
+    entries = {(e["Hour"], e["Minute"]) for e in sch.time.calendar_entries}
+    assert (2, 5) in entries
+    assert (2, 10) in entries
+
+
+def test_render_multiple_windows_and_overnight():
+    cfg = ChimeScheduler(suppress_schedule=["08:00-09:00", "23:30-00:30"])
+    sch = render(cfg)
+    entries = {(e["Hour"], e["Minute"]) for e in sch.time.calendar_entries}
+    assert (8, 0) in entries  # within first window
+    assert (8, 59) in entries
+    assert (23, 45) in entries  # second window before midnight
+    assert (0, 30) in entries  # second window after midnight
+
+
+def test_scheduler_invalid_window():
+    with pytest.raises(ValueError, match="Invalid time range"):
+        ChimeScheduler(suppress_schedule=["bad"])
 
 
 def test_render_behavior_options():

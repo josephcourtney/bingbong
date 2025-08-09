@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 
 from croniter import croniter
@@ -19,7 +20,7 @@ class ChimeScheduler:
     chime_schedule:
         Cron expression defining when a chime should play.
     suppress_schedule:
-        Cron expressions that specify suppression windows.
+        Human-readable suppression windows in ``HH:MM-HH:MM`` format.
     """
 
     chime_schedule: str = "0 * * * *"
@@ -30,14 +31,12 @@ class ChimeScheduler:
     crashed: bool | None = None
 
     def __post_init__(self) -> None:
-        """Validate cron expressions on init."""
+        """Validate schedules on init."""
         if not croniter.is_valid(self.chime_schedule):
             msg = "Invalid cron expression"
             raise ValueError(msg)
         for expr in self.suppress_schedule:
-            if not croniter.is_valid(expr):
-                msg = "Invalid cron expression"
-                raise ValueError(msg)
+            _parse_window(expr)  # validates format
 
 
 def render(cfg: ChimeScheduler) -> LaunchdSchedule:
@@ -47,9 +46,7 @@ def render(cfg: ChimeScheduler) -> LaunchdSchedule:
     sch.add_watch_path(str(config_path()))
     sch.add_launch_event("com.apple.iokit.matching", "SystemWake", {"IOServiceClass": "IOPMrootDomain"})
     for rng in cfg.suppress_schedule:
-        minute, hour, *_ = rng.split()
-        spec = f"{int(hour):02d}:{int(minute):02d}-{int(hour):02d}:{int(minute):02d}"
-        sch.time.add_suppression_window(spec)
+        sch.time.add_suppression_window(_parse_window(rng))
     sch.behavior.run_at_load = True
     sch.behavior.keep_alive = True
     if cfg.exit_timeout is not None:
@@ -61,3 +58,42 @@ def render(cfg: ChimeScheduler) -> LaunchdSchedule:
     if cfg.crashed is not None:
         sch.behavior.crashed = cfg.crashed
     return sch
+
+
+_WINDOW_RE = re.compile(r"^(\d{1,2}):(\d{2})-(\d{1,2}):(\d{2})$")
+_HOURS_PER_DAY = 24
+_MINUTES_PER_HOUR = 60
+
+
+def _parse_window(rng: str) -> str:
+    """Normalize a suppression window string.
+
+    Parameters
+    ----------
+    rng:
+        A string in ``HH:MM-HH:MM`` format. Whitespace is tolerated.
+
+    Returns
+    -------
+    str
+        Normalized ``HH:MM-HH:MM`` spec suitable for ``add_suppression_window``.
+
+    Raises
+    ------
+    ValueError
+        If ``rng`` is malformed or out of range.
+    """
+    match = _WINDOW_RE.match(rng.strip())
+    if not match:
+        msg = "Invalid time range"
+        raise ValueError(msg)
+    sh, sm, eh, em = map(int, match.groups())
+    if not (
+        0 <= sh < _HOURS_PER_DAY
+        and 0 <= eh < _HOURS_PER_DAY
+        and 0 <= sm < _MINUTES_PER_HOUR
+        and 0 <= em < _MINUTES_PER_HOUR
+    ):
+        msg = "Invalid time range"
+        raise ValueError(msg)
+    return f"{sh:02d}:{sm:02d}-{eh:02d}:{em:02d}"
