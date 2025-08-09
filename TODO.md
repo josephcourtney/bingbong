@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 - [x] Expose advanced `LaunchBehavior` knobs
   - Add CLI/config options to set `exit_timeout`, `throttle_interval`, `successful_exit`, and `crashed`.
 - [x] Replace polling for wake detection
@@ -5,11 +6,17 @@
 - [x] Backoff on failure
   - Add `--backoff <seconds>` flag and use it to set `ThrottleInterval` and `KeepAlive = {"Crashed": True}`.
 - [x] Auto-reload on config change
+=======
+- [ ] Replace polling for wake detection
+  - Replace `on_wake` polling with a `SystemWake` event via `EventTriggers`.
+- [ ] Auto-reload on config change
+>>>>>>> bea4ce0 (updated todo)
   - Use `FilesystemTriggers.add_watch_path()` on `~/.config/bingbong/config.toml` to restart service after edits.
 - [x] Unify output/logging format
   - Centralize verbosity and formatting control (currently spread across modules).
 - [x] Document all CLI/config options
   - Update `README.md` and CLI `--help` output to include advanced scheduling and behavior flags.
+<<<<<<< HEAD
 - [x] Wrap `ffmpeg` in a testable class
   - Create an injectable `FFmpeg` interface to isolate subprocess logic.
 - [x] Unify state files
@@ -17,6 +24,9 @@
 - [x] Test `launchd` plist round-trip
   - Generate a plist with `LaunchdService.render()`, then validate it using `plistlib.loads()`.
 - [x] Test failure/backoff scenarios
+=======
+- [ ] Test failure/backoff scenarios
+>>>>>>> bea4ce0 (updated todo)
   - Parametrize failures and confirm expected schedule behavior.
 - [x] Cross-platform CI
   - Stub `LaunchctlClient` on non-Darwin platforms; skip install/uninstall tests where unsupported.
