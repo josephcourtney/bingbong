@@ -81,16 +81,15 @@ def _ensure_chime_exists(chime_path: Path) -> bool:
     try:
         # rebuild into the default outdir; this signature matches zero-arg stubs
         build_all()
-    except RuntimeError as err:
-        print(f"Error during rebuild: {err}")
+    except RuntimeError:
+        logger.exception("Error during rebuild")
         return False
 
     if not chime_path.exists():
         logger.error("Rebuild failed or file still missing: %s", chime_path)
-        print("Rebuild failed or file still missing.")
         return False
 
-    print("Rebuild complete.")
+    logger.info("Rebuild complete.")
     return True
 
 
@@ -114,10 +113,10 @@ def notify_time(outdir: Path | None = None) -> None:
     nearest = nearest_quarter(now.minute)
     chime_path = resolve_chime_path(hour, nearest, outdir)
 
-    print(f"{now=}")
-    print(f"{hour=}")
-    print(f"{nearest=}")
-    print(f"{chime_path=}")
+    logger.debug("now=%s", now)
+    logger.debug("hour=%s", hour)
+    logger.debug("nearest=%s", nearest)
+    logger.debug("chime_path=%s", chime_path)
 
     # 4) Rebuild if missing
     if not chime_path.exists() and not _ensure_chime_exists(chime_path):
@@ -127,8 +126,7 @@ def notify_time(outdir: Path | None = None) -> None:
     try:
         audio.duck_others()
     except OSError as e:
-        # print to stdout so tests can see it
-        print(f"warning: {e}")
+        logger.warning("warning: %s", e)
 
     # 6) Play the chime
     audio.play_file(chime_path)
