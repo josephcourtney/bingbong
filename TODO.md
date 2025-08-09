@@ -1,2 +1,3 @@
 - [ ] sounds are being played at the wrong times. make bingbong.out include the time and what was played to help debugging
+- [ ] use freezegun and mocking to put bingbong in positions where it should chime or not and make sure it does the right thing
 - [ ] when running the `bingbong install` command, if any files already exist, it causes a crash. Instead, inform the user and ask if the relevant file should be replaced. Repeat for every file or other type of error.
