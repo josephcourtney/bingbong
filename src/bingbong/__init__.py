@@ -1,5 +1,9 @@
+"""Package initialization for bingbong."""
+
 from importlib.metadata import version
 
-__all__ = ["__version__"]
+from .errors import BingBongError
+
+__all__ = ["BingBongError", "__version__"]
 
 __version__ = version("bingbong")

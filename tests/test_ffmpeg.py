@@ -3,6 +3,7 @@ import shutil
 import subprocess
 
 import pytest
+from bingbong.errors import BingBongError
 
 from bingbong import audio, ffmpeg, paths
 from bingbong.audio import concat, make_silence
@@ -11,7 +12,7 @@ from bingbong.audio import concat, make_silence
 def test_concat_ffmpeg_missing(monkeypatch, tmp_path):
     # If FFMPEG is None, concat should fail immediately
     monkeypatch.setattr(ffmpeg, "find_ffmpeg", lambda: None)
-    with pytest.raises(RuntimeError):
+    with pytest.raises(BingBongError):
         concat([], tmp_path / "out.wav")
 
 
@@ -38,11 +39,11 @@ def test_make_silence_creates_file(tmp_path):
 
 def test_concat_runtime_error(monkeypatch, tmp_path):
     monkeypatch.setattr("bingbong.ffmpeg.find_ffmpeg", lambda: None)
-    with pytest.raises(RuntimeError, match="ffmpeg is not available"):
+    with pytest.raises(BingBongError, match="ffmpeg is not available"):
         ffmpeg.concat(["a.wav", "b.wav"], tmp_path / "out.wav")
 
 
 def test_make_silence_missing_ffmpeg(monkeypatch, tmp_path):
     monkeypatch.setattr("bingbong.ffmpeg.find_ffmpeg", lambda: None)
-    with pytest.raises(RuntimeError, match="ffmpeg is not available"):
+    with pytest.raises(BingBongError, match="ffmpeg is not available"):
         ffmpeg.make_silence(tmp_path)

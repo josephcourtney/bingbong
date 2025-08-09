@@ -6,16 +6,18 @@ from functools import cache
 from importlib.resources import files
 from typing import TYPE_CHECKING
 
+from .errors import BingBongError
 from .paths import ensure_outdir
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
     from pathlib import Path
 
 __all__ = ["concat", "ffmpeg_available", "find_ffmpeg", "make_silence"]
 
 DATA = files("bingbong.data")
-POP = str(DATA / "pop.wav")
-CHIME = str(DATA / "chime.wav")
+POP = DATA / "pop.wav"
+CHIME = DATA / "chime.wav"
 
 
 @cache
@@ -29,11 +31,11 @@ def ffmpeg_available() -> bool:
     return find_ffmpeg() is not None
 
 
-def concat(inputs: list[Path], output: Path, outdir: Path | None = None) -> None:
+def concat(inputs: Sequence[Path], output: Path, outdir: Path | None = None) -> None:
     """Concatenate .wav files into one using ffmpeg."""
     if not ffmpeg_available():
         msg = "ffmpeg is not available"
-        raise RuntimeError(msg)
+        raise BingBongError(msg)
     if outdir is None:
         outdir = ensure_outdir()
 
@@ -46,7 +48,7 @@ def concat(inputs: list[Path], output: Path, outdir: Path | None = None) -> None
     ffmpeg_bin = find_ffmpeg()
     if not ffmpeg_bin:
         msg = "ffmpeg is not available on this system."
-        raise RuntimeError(msg)
+        raise BingBongError(msg)
 
     try:
         subprocess.run(  # noqa: S603
@@ -58,16 +60,16 @@ def concat(inputs: list[Path], output: Path, outdir: Path | None = None) -> None
                 "-safe",
                 "0",
                 "-i",
-                str(list_path),
+                list_path,
                 "-c",
                 "copy",
-                str(output),
+                output,
             ],
             check=True,
         )
     except subprocess.CalledProcessError as e:
         msg = f"ffmpeg concat failed: {e}"
-        raise RuntimeError(msg) from e
+        raise BingBongError(msg) from e
     finally:
         list_path.unlink(missing_ok=True)
 
@@ -76,7 +78,7 @@ def make_silence(outdir: Path | None = None, duration: int = 1) -> None:
     """Generate a silent WAV of given duration."""
     if not ffmpeg_available():
         msg = "ffmpeg is not available"
-        raise RuntimeError(msg)
+        raise BingBongError(msg)
     if outdir is None:
         outdir = ensure_outdir()
     outdir.mkdir(parents=True, exist_ok=True)
@@ -85,7 +87,7 @@ def make_silence(outdir: Path | None = None, duration: int = 1) -> None:
     ffmpeg_bin = find_ffmpeg()
     if not ffmpeg_bin:
         msg = "ffmpeg is not available on this system."
-        raise RuntimeError(msg)
+        raise BingBongError(msg)
 
     subprocess.run(  # noqa: S603
         [

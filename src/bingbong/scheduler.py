@@ -10,7 +10,15 @@ __all__ = ["ChimeScheduler", "render"]
 
 @dataclass(slots=True)
 class ChimeScheduler:
-    """Manage chime and suppression schedules."""
+    """Manage chime and suppression schedules.
+
+    Attributes
+    ----------
+    chime_schedule:
+        Cron expression defining when a chime should play.
+    suppress_schedule:
+        Cron expressions that specify suppression windows.
+    """
 
     chime_schedule: str = "0 * * * *"
     suppress_schedule: list[str] = field(default_factory=list)
@@ -27,7 +35,7 @@ class ChimeScheduler:
 
 
 def render(cfg: ChimeScheduler) -> LaunchdSchedule:
-    """Create a fully-populated :class:`LaunchdSchedule` from ``cfg``."""
+    """Return a :class:`LaunchdSchedule` populated from ``cfg``."""
     sch = LaunchdSchedule()
     sch.add_cron(cfg.chime_schedule)
     for rng in cfg.suppress_schedule:
