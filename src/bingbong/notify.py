@@ -4,7 +4,7 @@ import subprocess  # noqa: S404
 from datetime import datetime
 from pathlib import Path
 
-from . import audio
+from . import audio, state
 from .audio import build_all
 from .paths import ensure_outdir
 
@@ -30,23 +30,26 @@ def resolve_chime_path(hour: int, nearest: int, outdir: Path | None = None) -> P
 
 
 def is_paused(outdir: Path, now: datetime) -> datetime | None:
-    """Return the expiry if pause is active; clear file if expired/invalid."""
-    pause_file = outdir / ".pause_until"
-    if not pause_file.exists():
+    """Return the pause expiry if active; clear entry if expired/invalid."""
+    data = state.load(outdir)
+    raw = data.get("pause_until")
+    if not raw:
         return None
 
     try:
-        expiry_raw = datetime.fromisoformat(pause_file.read_text())
-    except (ValueError, OSError):
+        expiry_raw = datetime.fromisoformat(raw)
+    except ValueError:
         logger.warning("Corrupt pause file; deleting.")
-        pause_file.unlink(missing_ok=True)
+        _ = data.pop("pause_until", None)
+        state.save(outdir, data)
         return None
 
     if expiry_raw.tzinfo is None:
         expiry_raw = expiry_raw.replace(tzinfo=now.tzinfo)
 
     if now >= expiry_raw:
-        pause_file.unlink(missing_ok=True)
+        _ = data.pop("pause_until", None)
+        state.save(outdir, data)
         return None
     return expiry_raw
 
@@ -133,29 +136,28 @@ def notify_time(outdir: Path | None = None) -> None:
 
 
 def on_wake(outdir: Path | None = None) -> None:
-    """Play any hourly chimes we missed since the last run, then record the current time in a state file."""
+    """Play missed hourly chimes since the last recorded run."""
     if outdir is None:
         outdir = ensure_outdir()
 
-    state = outdir / ".last_run"
+    data = state.load(outdir)
     now = datetime.now().astimezone()
 
-    # first run: just record time
-    if not state.exists():
-        state.write_text(now.isoformat())
+    last_raw = data.get("last_run")
+    if not last_raw:
+        data["last_run"] = now.isoformat()
+        state.save(outdir, data)
         return
 
-    # read last run; if malformed, treat as first run
     try:
-        last = datetime.fromisoformat(state.read_text())
-    except (ValueError, OSError):
+        last = datetime.fromisoformat(last_raw)
+    except ValueError:
         last = now
 
-    # for each hour boundary we passed, play that hour chime
     for hr in range(last.hour + 1, now.hour + 1):
         path = resolve_chime_path(hr, 0, outdir)
         if path.exists():
             audio.play_file(path)
 
-    # record new timestamp
-    state.write_text(now.isoformat())
+    data["last_run"] = now.isoformat()
+    state.save(outdir, data)

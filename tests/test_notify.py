@@ -1,4 +1,5 @@
 import importlib
+import json
 import logging
 import shutil
 import subprocess
@@ -149,9 +150,9 @@ def test_resolve_chime_path_midnight_rollover(tmp_path, monkeypatch):
 
 
 def test_notify_respects_manual_pause(tmp_path, monkeypatch):
-    # create a pause file in the future
+    # create a pause entry in the future
     future = "2025-05-06T11:00:00"
-    (tmp_path / ".pause_until").write_text(future)
+    (tmp_path / ".state.json").write_text(json.dumps({"pause_until": future}))
 
     called = {"played": False}
     monkeypatch.setattr(audio_mod, "play_file", lambda _path: called.__setitem__("played", True))
@@ -164,7 +165,7 @@ def test_notify_respects_manual_pause(tmp_path, monkeypatch):
 @freeze_time("2025-05-06 10:10:00")
 def test_notify_unpauses_after_expiry(tmp_path, monkeypatch):
     # pause expired at 10:00
-    (tmp_path / ".pause_until").write_text("2025-05-06T10:00:00")
+    (tmp_path / ".state.json").write_text(json.dumps({"pause_until": "2025-05-06T10:00:00"}))
 
     # dummy chime path
     dummy = tmp_path / "hour_1.wav"
@@ -178,8 +179,9 @@ def test_notify_unpauses_after_expiry(tmp_path, monkeypatch):
 
     notify_time(outdir=tmp_path)
     assert called["played"]
-    # expired file should be removed
-    assert not (tmp_path / ".pause_until").exists()
+    # expired entry should be removed
+    data = json.loads((tmp_path / ".state.json").read_text())
+    assert "pause_until" not in data
 
 
 def test_notify_respects_dnd(tmp_path, monkeypatch):
@@ -199,8 +201,8 @@ def test_notify_respects_dnd(tmp_path, monkeypatch):
 
 
 def test_bad_pause_file_is_deleted_and_played(tmp_path, monkeypatch):
-    # create a malformed pause file
-    (tmp_path / ".pause_until").write_text("not-a-timestamp")
+    # create a malformed pause entry
+    (tmp_path / ".state.json").write_text(json.dumps({"pause_until": "not-a-timestamp"}))
 
     # dummy chime path
     dummy = tmp_path / "quarter_1.wav"
@@ -213,5 +215,6 @@ def test_bad_pause_file_is_deleted_and_played(tmp_path, monkeypatch):
 
     notify_time(outdir=tmp_path)
     assert called["played"]
-    # malformed file should have been removed
-    assert not (tmp_path / ".pause_until").exists()
+    # malformed entry should have been removed
+    data = json.loads((tmp_path / ".state.json").read_text())
+    assert "pause_until" not in data

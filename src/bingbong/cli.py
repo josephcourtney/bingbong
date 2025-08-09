@@ -19,6 +19,7 @@ from .commands import logs_cmd
 from .commands import silence as silence_cmd
 from .commands import status as status_cmd
 from .paths import ensure_outdir
+from .scheduler import ChimeScheduler
 from .utils import dryable
 
 LOG_ROTATE_SIZE = 10 * 1024 * 1024  # rotate logs larger than 10 MB
@@ -51,11 +52,33 @@ def main(ctx: click.Context, *, dry_run: bool) -> None:
 
 
 @main.command()
+@click.option("--exit-timeout", type=int)
+@click.option("--throttle-interval", type=int)
+@click.option("--successful-exit/--no-successful-exit", default=None)
+@click.option("--crashed/--no-crashed", default=None)
+@click.option("--backoff", type=int, help="Seconds to back off on failure")
 @click.pass_context
 @dryable("would install launchctl job")
-def install(_ctx: click.Context) -> None:
+def install(
+    _ctx: click.Context,
+    *,
+    exit_timeout: int | None,
+    throttle_interval: int | None,
+    successful_exit: bool | None,
+    crashed: bool | None,
+    backoff: int | None,
+) -> None:
     """Install launchctl job."""
-    launchctl.install()
+    cfg = ChimeScheduler(
+        exit_timeout=exit_timeout,
+        throttle_interval=throttle_interval,
+        successful_exit=successful_exit,
+        crashed=crashed,
+    )
+    if backoff is not None:
+        cfg.throttle_interval = backoff
+        cfg.crashed = True
+    launchctl.install(cfg)
     click.echo("Installed launchctl job.")
 
 
@@ -161,5 +184,8 @@ def completion(shell: str | None = None) -> None:
     """Generate shell completion script."""
     shell = shell or "bash"
     cls = get_completion_class(shell)
+    if cls is None:
+        msg = "Unsupported shell"
+        raise click.BadParameter(msg)
     script = cls(main, {}, "bingbong", "_BINGBONG_COMPLETE").source()
     click.echo(script)

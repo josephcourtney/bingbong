@@ -6,7 +6,7 @@ from pathlib import Path
 import sounddevice as sd
 import soundfile as sf
 
-from .ffmpeg import concat, make_silence
+from .ffmpeg import FFmpeg, concat, make_silence
 from .paths import ensure_outdir
 
 # --- Constants ---
@@ -45,16 +45,16 @@ def duck_others() -> None:
     return
 
 
-def make_quarters(outdir: Path | None = None) -> None:
+def make_quarters(outdir: Path | None = None, ffmpeg: FFmpeg | None = None) -> None:
     if outdir is None:
         outdir = ensure_outdir()
     for n in range(1, 4):
         pops = [POP] * n
         output = outdir / f"quarter_{n}.wav"
-        concat([str(outdir / "silence.wav"), *pops], output, outdir=outdir)
+        concat([str(outdir / "silence.wav"), *pops], output, outdir=outdir, runner=ffmpeg)
 
 
-def make_hours(outdir: Path | None = None) -> None:
+def make_hours(outdir: Path | None = None, ffmpeg: FFmpeg | None = None) -> None:
     if outdir is None:
         outdir = ensure_outdir()
     for hour in range(1, 13):
@@ -68,10 +68,10 @@ def make_hours(outdir: Path | None = None) -> None:
                 cluster.extend([POP] * remaining_ + [SILENCE])
 
         output = outdir / f"hour_{hour}.wav"
-        concat([SILENCE, CHIME, SILENCE, *cluster], output, outdir=outdir)
+        concat([SILENCE, CHIME, SILENCE, *cluster], output, outdir=outdir, runner=ffmpeg)
 
 
-def build_all(outdir: Path | None = None) -> None:
-    make_silence(outdir)
-    make_quarters(outdir)
-    make_hours(outdir)
+def build_all(outdir: Path | None = None, ffmpeg: FFmpeg | None = None) -> None:
+    make_silence(outdir, runner=ffmpeg)
+    make_quarters(outdir, ffmpeg=ffmpeg)
+    make_hours(outdir, ffmpeg=ffmpeg)
