@@ -1,3 +1,4 @@
+import contextlib
 import logging
 import re
 import shutil
@@ -10,7 +11,6 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import click
 from click.shell_completion import get_completion_class
 from croniter import croniter
-from rich.console import Console
 from tomlkit import dumps
 
 from . import console, launchctl, notify
@@ -35,13 +35,10 @@ PLIST_LABEL = "com.josephcourtney.bingbong"
 console.setup_logging()
 logger = logging.getLogger("bingbong")
 
-console = Console()
 
 pkg_version_str = "0.0.0"
-try:  # pragma: no cover - fallback for development
+with contextlib.suppress(PackageNotFoundError):
     pkg_version_str = pkg_version("bingbong")
-except PackageNotFoundError:  # pragma: no cover - package not installed
-    pass
 
 
 @click.group()

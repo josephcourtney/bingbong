@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import functools
+import os
+from pathlib import Path
+from tempfile import NamedTemporaryFile
 from typing import TYPE_CHECKING, Concatenate, ParamSpec, TypeVar
 
 import click
@@ -12,6 +15,38 @@ if TYPE_CHECKING:
 
 P = ParamSpec("P")
 R = TypeVar("R")
+
+
+def _atomic_replace(tmp_path: Path, dest: Path) -> None:
+    """Cross-platform, atomic-ish replace of tmp file with dest.
+
+    Falls back to best effort if OS doesn't support true atomicity.
+    """
+    Path(str(tmp_path)).replace(str(dest))
+
+
+def atomic_write_text(path: Path, data: str) -> None:
+    """Write text atomically to ``path`` (UTF-8)."""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with NamedTemporaryFile("w", encoding="utf-8", delete=False, dir=path.parent) as fh:
+        fh.write(data)
+        fh.flush()
+        os.fsync(fh.fileno())
+        tmp = Path(fh.name)
+    _atomic_replace(tmp, path)
+
+
+def atomic_write_bytes(path: Path, data: bytes) -> None:
+    """Write bytes atomically to ``path``."""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with NamedTemporaryFile("wb", delete=False, dir=path.parent) as fh:
+        fh.write(data)
+        fh.flush()
+        os.fsync(fh.fileno())
+        tmp = Path(fh.name)
+    _atomic_replace(tmp, path)
 
 
 def dryable(

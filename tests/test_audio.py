@@ -12,6 +12,7 @@ def test_play_file_missing_path(caplog):
     with caplog.at_level(logging.ERROR):
         play_file(Path("/nonexistent/file.wav"))
     assert "Failed to play audio" in caplog.text
+    assert "file not found" in caplog.text
 
 
 def test_play_file_exception(monkeypatch, tmp_path, caplog):

@@ -82,7 +82,7 @@ def test_cli_install_handles_existing_file(monkeypatch, tmp_path):
 
     removed = {"called": False}
 
-    def fake_unlink(self, missing_ok=False):
+    def fake_unlink(self, *, missing_ok=False):
         if self == path:
             removed["called"] = True
         else:

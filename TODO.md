@@ -1,3 +1,61 @@
 - [ ] sounds are being played at the wrong times. make bingbong.out include the time and what was played to help debugging
 - [ ] use freezegun and mocking to put bingbong in positions where it should chime or not and make sure it does the right thing
 - [ ] when running the `bingbong install` command, if any files already exist, it causes a crash. Instead, inform the user and ask if the relevant file should be replaced. Repeat for every file or other type of error.
+- [ ] Align suppression-window formats
+  - Parse `"HH:MM-HH:MM"` ranges in scheduler rendering instead of cron fragments. (`src/bingbong/scheduler.py:render`)
+  - Add tests for multiple windows and edge cases (overnight wrap, malformed). (`tests/test_scheduler.py`)
+- [ ] Replace `print` in chime path logging with console/logging
+  - Use `console.ok()` (or a dedicated logger) instead of `print` when announcing played files. (`src/bingbong/notify.py:notify_time`)
+  - Do the same in `on_wake()` when playing missed chimes. (`src/bingbong/notify.py:on_wake`)
+  - Update tests to assert via captured output/log. (`tests/test_notify.py`)
+- [ ] Make `configure` testable & robust
+  - Extract an injectable `get_input(prompt: str) -> str` and use it everywhere `input()` is called. (`src/bingbong/cli.py:configure`)
+  - Validate time ranges and produce actionable error messages (keep ISO parsing, tolerate spaces).
+  - Add tests for happy paths, invalid cron, bad timezone, invalid file paths. (`tests/test_cli.py`)
+- [ ] Backoff/KeepAlive semantics in `install`
+  - When `--backoff` is provided, validate that it doesn’t conflict with `--successful-exit/--no-successful-exit`. (`src/bingbong/cli.py:install`)
+  - Emit a clear message describing effective launchd behavior (throttle interval, crashed).
+  - Add tests for conflict handling and message. (`tests/test_cli.py`)
+- [ ] Introduce a Chime Selection Strategy (Strategy pattern)
+  - Define a `ChimePolicy` protocol with `resolve(now) -> Path`. (`src/bingbong/notify.py` or `src/bingbong/policies.py`)
+  - Provide `QuarterHourPolicy` (current behavior) and leave room for future policies (e.g., “every 5 min”).
+  - `notify_time()` accepts an optional policy (default to `QuarterHourPolicy`).
+  - Add unit tests for policy selection. (`tests/test_notify.py`)
+- [ ] FFmpeg construction via a small factory for easier DI
+  - Add `get_ffmpeg() -> FFmpeg` function that can be monkeypatched in tests. (`src/bingbong/ffmpeg.py`)
+  - Thread it through `audio.build_all/make_*` instead of instantiating `FFmpeg()` inline. (`src/bingbong/audio.py`)
+  - Adjust tests to patch factory, not class. (`tests/test_audio.py`, `tests/test_ffmpeg.py`)
+- [ ] DRY up audio builders
+  - Factor shared “concat sequence to file” helper used by `make_quarters()` and `make_hours()`. (`src/bingbong/audio.py`)
+  - Add small docstrings explaining the “cluster of pops + silence” rule.
+  - Keep current outputs unchanged (test coverage should still pass).
+- [ ] Guardrails in `play_file`
+  - Add a max file size (e.g., 25 MB) sanity check before `sf.read`. (`src/bingbong/audio.py:play_file`)
+  - Normalize/clarify log messages and include filepath + reason consistently.
+  - New tests simulating oversize files and corrupted buffers. (`tests/test_audio.py`)
+- [ ] Clarify/implement `duck_others()` handling
+  - Either document it as a no‑op with a TODO + platform note, or implement macOS‑specific attenuation if feasible. (`src/bingbong/audio.py:duck_others`)
+  - Log a debug line when skipped due to platform/unavailable APIs.
+- [ ] Use `console` helpers consistently
+  - Swap ad‑hoc `click.echo` status messages for `console.ok/warn/err` where appropriate in commands for consistent styling, except where Click must print prompts. (`src/bingbong/commands/*.py`, `src/bingbong/cli.py`)
+  - Keep `click` prompts/confirmations as‑is.
+- [ ] Log rotation actually using `LOG_ROTATE_SIZE`
+  - Implement simple rotation for `STDOUT_LOG`/`STDERR_LOG` when exceeding `LOG_ROTATE_SIZE` (rename to `*.1`, delete old). (`src/bingbong/cli.py` or `src/bingbong/commands/logs.py`)
+  - Add tests that simulate growth and verify rotation. (`tests/test_cli.py` or new `tests/test_logs.py`)
+- [ ] Tighten doctor/status UX
+  - Fix stray quote in “launchctl' not found in PATH.” → “launchctl not found in PATH.” (`src/bingbong/commands/doctor.py`)
+  - In `status`, show the evaluated next chime in local time with date, and explicitly print suppression & pause states (already partially there). (`src/bingbong/commands/status.py`)
+  - Tests for doctor/status messages. (`tests/test_cli.py`)
+- [ ] Ruff/Python version alignment
+  - Align Ruff `target-version` to `py313` to match `requires-python = ">=3.13"`. (`ruff.toml`)
+  - Add a note in `AGENTS.md` to run `ruff format` after the change.
+- [ ] Docs & examples
+  - README: document suppression window format (`HH:MM-HH:MM`) and the new strategy hook for custom schedules. (`README.md`)
+  - Add a small snippet showing how to pause with `--minutes` and resume (toggle behavior).
+  - Mention that chime events are logged via console/logging, not `print`.
+- [ ] Extra tests for edge cases already supported
+  - `state.load`: malformed JSON, oversize file, unknown keys (covered) — add a case for non‑dict JSON types for completeness. (`tests/test_state.py`)
+  - DND probe failure path logs a warning and still chimes if appropriate. (`tests/test_notify.py`)
+- [ ] Nice-to‑have: config reload behavior
+  - Since launchd watches `config.toml`, add a small handler that revalidates/warms any derived state on next `chime` invocation (or log that reload happened). (`src/bingbong/cli.py` or `src/bingbong/notify.py`)
+  - Minimal test proving no crash when file changes mid‑run.

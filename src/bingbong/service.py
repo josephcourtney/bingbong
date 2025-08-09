@@ -2,14 +2,14 @@ import sys
 
 from onginred.service import LaunchdService
 
-from bingbong.paths import ensure_outdir
+from bingbong import paths
 from bingbong.scheduler import ChimeScheduler, render
 
 LABEL = "com.josephcourtney.bingbong"
 
 
 def _service(cfg: ChimeScheduler) -> LaunchdService:
-    outdir = ensure_outdir()
+    outdir = paths.ensure_outdir()
     return LaunchdService(
         bundle_identifier=LABEL,
         command=[sys.executable, "-m", "bingbong", "chime"],

@@ -20,20 +20,30 @@ POPS_PER_CLUSTER = 3
 def play_file(path: Path) -> None:
     logger = logging.getLogger("bingbong.audio")
     if not path.exists():
-        logger.error("Failed to play audio: file not found")
+        logger.error("Failed to play audio: file not found (%s)", path)
+        return
+    if not path.is_file():
+        logger.error("Failed to play audio: not a file (%s)", path)
         return
 
     try:
         data, fs = sf.read(str(path))
+        if fs <= 0:
+            logger.error("Failed to play audio: invalid sample rate")
+            return
+        # soundfile returns [] sometimes in tests; treat empty as no-op with log
+        if data is None or (hasattr(data, "__len__") and len(data) == 0):
+            logger.error("Failed to play audio: empty audio buffer")
+            return
     except (RuntimeError, OSError):
-        logger.exception("Failed to play audio")
+        logger.exception("Failed to play audio: could not read (%s)", path)
         return
 
     try:
         sd.play(data, fs)
         sd.wait()
     except (RuntimeError, OSError):
-        logger.exception("Failed to play audio")
+        logger.exception("Failed to play audio while playing (%s)", path)
         return
 
 
