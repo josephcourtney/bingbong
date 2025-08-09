@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 
 from bingbong import audio
@@ -7,13 +8,13 @@ HOURS = list(range(1, 13))
 QUARTERS = [1, 2, 3]
 
 
-def test_play_file_missing_path(capsys):
-    play_file(Path("/nonexistent/file.wav"))
-    out = capsys.readouterr().out
-    assert "Failed to play audio" in out
+def test_play_file_missing_path(caplog):
+    with caplog.at_level(logging.ERROR):
+        play_file(Path("/nonexistent/file.wav"))
+    assert "Failed to play audio" in caplog.text
 
 
-def test_play_file_exception(monkeypatch, tmp_path, capsys):
+def test_play_file_exception(monkeypatch, tmp_path, caplog):
     dummy_file = tmp_path / "bad.wav"
     dummy_file.write_text("not really wav data")
 
@@ -24,10 +25,9 @@ def test_play_file_exception(monkeypatch, tmp_path, capsys):
 
     monkeypatch.setattr(audio.sf, "read", fake_read)
 
-    audio.play_file(dummy_file)
-
-    out = capsys.readouterr().out
-    assert "Failed to play audio" in out
+    with caplog.at_level(logging.ERROR):
+        audio.play_file(dummy_file)
+    assert "Failed to play audio" in caplog.text
 
 
 def test_make_quarters_creates_expected_files(tmp_path):

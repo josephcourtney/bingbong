@@ -6,17 +6,17 @@
   - Add `--backoff <seconds>` flag and use it to set `ThrottleInterval` and `KeepAlive = {"Crashed": True}`.
 - [ ] Auto-reload on config change
   - Use `FilesystemTriggers.add_watch_path()` on `~/.config/bingbong/config.toml` to restart service after edits.
-- [ ] Improve validation
+- [x] Improve validation
   - Harden validation for timezone strings and custom sound paths in `configure()`.
-- [ ] Add shell-completion support
+- [x] Add shell-completion support
 - [ ] Unify output/logging format
   - Centralize verbosity and formatting control (currently spread across modules).
 - [ ] Document all CLI/config options
   - Update `README.md` and CLI `--help` output to include advanced scheduling and behavior flags.
 - [ ] Wrap `ffmpeg` in a testable class
   - Create an injectable `FFmpeg` interface to isolate subprocess logic.
-- [ ] Replace `print()` with structured logging
-- [ ] Remove dead code
+- [x] Replace `print()` with structured logging
+- [x] Remove dead code
   - Delete `_render_minimal_start_calendar_interval_plist` (unused).
 - [ ] State Management
   - [ ] Unify state files

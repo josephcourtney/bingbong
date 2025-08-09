@@ -4,8 +4,10 @@ import shutil
 import tempfile
 from importlib.metadata import version as pkg_version
 from pathlib import Path
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import click
+from click.shell_completion import get_completion_class
 from croniter import croniter
 from rich.console import Console
 from tomlkit import dumps
@@ -121,9 +123,19 @@ def configure():
 
     click.echo("Enter timezone:")
     tz = input().strip()
+    try:
+        ZoneInfo(tz)
+    except ZoneInfoNotFoundError:
+        click.echo("Invalid timezone")
+        raise SystemExit(1) from None
 
     click.echo("Enter custom sound paths, comma-separated:")
-    paths = [p.strip() for p in input().split(",") if p.strip()]
+    raw_paths = [p.strip() for p in input().split(",") if p.strip()]
+    invalid = [p for p in raw_paths if not Path(p).is_file()]
+    if invalid:
+        click.echo(f"Invalid sound paths: {', '.join(invalid)}")
+        raise SystemExit(1)
+    paths = raw_paths
 
     cfg = {
         "chime_schedule": cron_expr,
@@ -141,3 +153,13 @@ main.add_command(doctor_cmd)
 main.add_command(logs_cmd)
 main.add_command(silence_cmd)
 main.add_command(status_cmd)
+
+
+@main.command()
+@click.argument("shell", type=click.Choice(["bash", "zsh", "fish"]), required=False)
+def completion(shell: str | None = None) -> None:
+    """Generate shell completion script."""
+    shell = shell or "bash"
+    cls = get_completion_class(shell)
+    script = cls(main, {}, "bingbong", "_BINGBONG_COMPLETE").source()
+    click.echo(script)

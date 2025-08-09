@@ -3,10 +3,10 @@ import shutil
 import subprocess
 
 import pytest
-from bingbong.errors import BingBongError
 
 from bingbong import audio, ffmpeg, paths
 from bingbong.audio import concat, make_silence
+from bingbong.errors import BingBongError
 
 
 def test_concat_ffmpeg_missing(monkeypatch, tmp_path):

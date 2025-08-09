@@ -1,4 +1,5 @@
 import importlib
+import logging
 import shutil
 import subprocess
 from pathlib import Path
@@ -112,26 +113,24 @@ def test_notify_missing_triggers_rebuild(monkeypatch, tmp_path):
     assert called["played"] == expected
 
 
-def test_notify_rebuild_fails(monkeypatch, capsys):
+def test_notify_rebuild_fails(monkeypatch, caplog):
     monkeypatch.setattr("bingbong.notify.build_all", lambda: (_ for _ in ()).throw(RuntimeError("fail")))
     monkeypatch.setattr("bingbong.notify.resolve_chime_path", lambda *_: Path("/nonexistent.wav"))
 
-    notify.notify_time()
+    with caplog.at_level(logging.ERROR):
+        notify.notify_time()
+    assert "Error during rebuild" in caplog.text
 
-    out = capsys.readouterr().out
-    assert "Error during rebuild" in out
 
-
-def test_notify_rebuild_missing_file(monkeypatch, tmp_path, capsys):
+def test_notify_rebuild_missing_file(monkeypatch, tmp_path, caplog):
     dummy_path = tmp_path / "missing.wav"
 
     monkeypatch.setattr("bingbong.notify.resolve_chime_path", lambda *_: dummy_path)
     monkeypatch.setattr("bingbong.notify.build_all", lambda: None)
 
-    notify.notify_time(outdir=tmp_path)
-
-    out = capsys.readouterr().out
-    assert "Rebuild failed" in out
+    with caplog.at_level(logging.ERROR):
+        notify.notify_time(outdir=tmp_path)
+    assert "Rebuild failed" in caplog.text
 
 
 def test_nearest_quarter_rounding_edges():
