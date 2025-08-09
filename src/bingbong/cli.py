@@ -2,6 +2,7 @@ import logging
 import re
 import shutil
 import tempfile
+from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as pkg_version
 from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -36,10 +37,16 @@ logger = logging.getLogger("bingbong")
 
 console = Console()
 
+pkg_version_str = "0.0.0"
+try:  # pragma: no cover - fallback for development
+    pkg_version_str = pkg_version("bingbong")
+except PackageNotFoundError:  # pragma: no cover - package not installed
+    pass
+
 
 @click.group()
 @click.option("--dry-run", is_flag=True, help="Simulate actions without changes.")
-@click.version_option(pkg_version("bingbong"))
+@click.version_option(pkg_version_str)
 @click.pass_context
 def main(ctx: click.Context, *, dry_run: bool) -> None:
     """Time-based macOS notifier."""
@@ -74,7 +81,29 @@ def install(
     if backoff is not None:
         cfg.throttle_interval = backoff
         cfg.crashed = True
-    launchctl.install(cfg)
+    while True:
+        try:
+            launchctl.install(cfg)
+        except FileExistsError as e:
+            path = Path(e.filename or str(e))
+            if click.confirm(f"{path} exists. Replace?", default=False):
+                try:
+                    path.unlink()
+                except OSError as err:
+                    click.echo(f"Failed to remove {path}: {err}")
+                    if not click.confirm("Retry installation?", default=False):
+                        return
+                else:
+                    continue
+            else:
+                click.echo("Installation aborted.")
+                return
+        except Exception as e:  # noqa: BLE001 - show any error
+            if click.confirm(f"Error: {e}. Retry?", default=False):
+                continue
+            click.echo("Installation aborted.")
+            return
+        break
     click.echo("Installed launchctl job.")
 
 
