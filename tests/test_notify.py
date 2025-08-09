@@ -200,6 +200,20 @@ def test_notify_respects_dnd(tmp_path, monkeypatch):
     assert not called["played"]
 
 
+@freeze_time("2024-01-01 15:00:00")
+def test_on_wake_plays_missed_chimes(tmp_path, monkeypatch):
+    audio.build_all(tmp_path)
+    state_file = tmp_path / ".state.json"
+    state_file.write_text(json.dumps({"last_run": "2024-01-01T12:00:00"}))
+    played: list[str] = []
+    monkeypatch.setattr("bingbong.audio.play_file", lambda p: played.append(Path(p).name))
+    notify.on_wake(outdir=tmp_path)
+    assert "hour_2.wav" in played
+    assert "hour_3.wav" in played
+    data = json.loads(state_file.read_text())
+    assert data["last_run"].startswith("2024-01-01T15:00:00")
+
+
 def test_bad_pause_file_is_deleted_and_played(tmp_path, monkeypatch):
     # create a malformed pause entry
     (tmp_path / ".state.json").write_text(json.dumps({"pause_until": "not-a-timestamp"}))

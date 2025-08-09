@@ -70,6 +70,7 @@ def test_cli_install_and_uninstall(monkeypatch):
 
 
 def test_cli_chime(monkeypatch):
+    monkeypatch.setattr("bingbong.notify.on_wake", lambda: None)
     monkeypatch.setattr("bingbong.notify.notify_time", lambda: None)
     runner = CliRunner()
     result = runner.invoke(main, ["chime"])
@@ -94,11 +95,12 @@ def test_cli_clean_when_empty(monkeypatch, tmp_path):
     assert "Removed" in result.output
 
 
-def test_cli_status(monkeypatch):
+def test_cli_status(monkeypatch, tmp_path):
     monkeypatch.setattr(
         "subprocess.run",
         lambda *_, **__: subprocess.CompletedProcess([], 0, stdout="com.josephcourtney.bingbong", stderr=""),
     )
+    monkeypatch.setattr("bingbong.paths.config_path", lambda: tmp_path / "config.toml")
     result = CliRunner().invoke(main, ["status"])
     assert "Service is loaded" in result.output
 
@@ -161,10 +163,11 @@ def test_cli_build_runtime_error(monkeypatch):
     assert "boom" in result.output
 
 
-def test_cli_status_not_loaded(monkeypatch):
+def test_cli_status_not_loaded(monkeypatch, tmp_path):
     monkeypatch.setattr(
         "subprocess.run", lambda *_, **__: subprocess.CompletedProcess([], 0, stdout="", stderr="")
     )
+    monkeypatch.setattr("bingbong.paths.config_path", lambda: tmp_path / "config.toml")
     result = CliRunner().invoke(main, ["status"])
     assert "NOT loaded" in result.output
 

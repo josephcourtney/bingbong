@@ -10,7 +10,7 @@ from croniter import CroniterBadCronError, croniter
 
 from bingbong.console import ok
 from bingbong.notify import is_paused
-from bingbong.paths import ensure_outdir
+from bingbong.paths import config_path, ensure_outdir
 
 PLIST_LABEL = "com.josephcourtney.bingbong"
 
@@ -26,7 +26,7 @@ def status() -> None:
         ok("\N{BALLOT BOX WITH X} Service is NOT loaded.")
 
     outdir = ensure_outdir()
-    cfg_path = outdir / "config.toml"
+    cfg_path = config_path()
     if not cfg_path.exists():
         return
 

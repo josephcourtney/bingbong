@@ -5,6 +5,8 @@ from dataclasses import dataclass, field
 from croniter import croniter
 from onginred.schedule import LaunchdSchedule
 
+from .paths import config_path
+
 __all__ = ["ChimeScheduler", "render"]
 
 
@@ -42,6 +44,8 @@ def render(cfg: ChimeScheduler) -> LaunchdSchedule:
     """Return a :class:`LaunchdSchedule` populated from ``cfg``."""
     sch = LaunchdSchedule()
     sch.add_cron(cfg.chime_schedule)
+    sch.add_watch_path(str(config_path()))
+    sch.add_launch_event("com.apple.iokit.matching", "SystemWake", {"IOServiceClass": "IOPMrootDomain"})
     for rng in cfg.suppress_schedule:
         minute, hour, *_ = rng.split()
         spec = f"{int(hour):02d}:{int(minute):02d}-{int(hour):02d}:{int(minute):02d}"

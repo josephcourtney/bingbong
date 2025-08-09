@@ -1,7 +1,7 @@
 import logging
 import shutil
 import subprocess  # noqa: S404
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from . import audio, state
@@ -153,9 +153,14 @@ def on_wake(outdir: Path | None = None) -> None:
         last = datetime.fromisoformat(last_raw)
     except ValueError:
         last = now
+    if last.tzinfo is None:
+        last = last.replace(tzinfo=now.tzinfo)
 
-    for hr in range(last.hour + 1, now.hour + 1):
-        path = resolve_chime_path(hr, 0, outdir)
+    current = last.replace(minute=0, second=0, microsecond=0)
+
+    while current + timedelta(hours=1) < now:
+        current += timedelta(hours=1)
+        path = resolve_chime_path(current.hour, 0, outdir)
         if path.exists():
             audio.play_file(path)
 
