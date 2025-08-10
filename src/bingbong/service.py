@@ -5,6 +5,7 @@ from onginred.service import LaunchdService
 
 from bingbong.config import LABEL
 from bingbong.constants import QUARTER_1, QUARTER_2, QUARTER_3
+from bingbong.log import debug
 
 __all__ = ["build_schedule", "service"]
 
@@ -16,11 +17,12 @@ def build_schedule() -> LaunchdSchedule:
     for h in range(24):
         for m in (0, QUARTER_1, QUARTER_2, QUARTER_3):
             sched.time.add_calendar_entry(hour=h, minute=m)
-    # We don't need KeepAlive; launchd will trigger us at the times above.
+    debug(f"built schedule with {len(sched.time.calendar_entries)} calendar entries")
     return sched
 
 
 def service(plist_path: str | None, program_args: list[str]) -> LaunchdService:
+    debug(f"creating LaunchdService: label={LABEL} plist_path={plist_path} args={program_args}")
     return LaunchdService(
         bundle_identifier=LABEL,
         command=program_args,  # ProgramArguments

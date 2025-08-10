@@ -22,6 +22,7 @@ from bingbong.core import (
     silence_active,
 )
 from bingbong.service import service
+from bingbong.log import debug, set_verbose
 
 if TYPE_CHECKING:
     from onginred.service import LaunchdService
@@ -46,8 +47,16 @@ def _require_darwin() -> None:
 
 
 @click.group(context_settings={"help_option_names": ["-h", "--help"]})
-def cli() -> None:
+@click.option("-v", "--verbose", is_flag=True, help="Enable verbose debug output")
+@click.pass_context
+def cli(ctx: click.Context, verbose: bool) -> None:
     """Bingbong - gentle time chimes for macOS."""
+    # Initialize verbosity for this process.
+    set_verbose(verbose)
+    if verbose:
+        debug("verbose logging enabled")
+        debug(f"python={sys.executable}")
+        debug(f"platform={sys.platform}")
 
 
 def _default_wavs() -> tuple[Path, Path]:
@@ -55,6 +64,7 @@ def _default_wavs() -> tuple[Path, Path]:
     pkg = "bingbong.data"
     chime = resources.files(pkg) / "chime.wav"
     pop = resources.files(pkg) / "pop.wav"
+    debug(f"default wavs resolved: chime={chime} pop={pop}")
     return (Path(chime), Path(pop))
 
 
@@ -111,6 +121,7 @@ def install(chime_wav: Path | None, pop_wav: Path | None, plist_path: Path | Non
         def_chime, def_pop = _default_wavs()
         chime_wav = chime_wav or def_chime
         pop_wav = pop_wav or def_pop
+    debug(f"install: chime={chime_wav} pop={pop_wav} plist={plist_path} player={AFPLAY}")
 
     Config(chime_wav=chime_wav, pop_wav=pop_wav).save()
     svc = _get_service(plist_path)
@@ -153,6 +164,7 @@ def uninstall(plist_path: Path | None) -> None:
 def status() -> None:
     """Show config, silence state, player, and plist status."""
     _require_darwin()
+    debug("status: begin")
     click.echo(f"Label: {LABEL}")
     click.echo(f"Player: {AFPLAY}")
     default_plist = Path.home() / "Library" / "LaunchAgents" / f"{LABEL}.plist"
@@ -183,6 +195,7 @@ def status() -> None:
         )
     else:
         click.echo("Silence: off")
+    debug("status: end")
 
 
 @cli.command()
@@ -206,6 +219,7 @@ def silence(minutes: int | None, until: str | None) -> None:
         if target <= now:
             target += timedelta(days=1)
         minutes = int((target - now).total_seconds() // 60)
+        debug(f"silence --until computed minutes={minutes} (target={target.isoformat()})")
     if minutes is None:  # pragma: no cover - defensive
         msg = "minutes not computed"
         raise RuntimeError(msg)
@@ -217,6 +231,7 @@ def silence(minutes: int | None, until: str | None) -> None:
         f"[bingbong] Silenced until {until_dt.astimezone().strftime('%Y-%m-%d %H:%M:%S %Z')}",
         fg="blue",
     )
+    debug("silence: set OK")
 
 
 @cli.command()
@@ -226,6 +241,7 @@ def resume() -> None:
     with contextlib.suppress(FileNotFoundError):
         silence_path().unlink()
     click.secho("[bingbong] Silence cleared", fg="green")
+    debug("resume: cleared silence file (if existed)")
 
 
 @cli.command()
@@ -247,6 +263,7 @@ def doctor() -> None:
         click.secho("Plist missing ❌", fg="yellow")
     if not ok:
         sys.exit(1)
+    debug("doctor: completed checks")
 
 
 @cli.command()
@@ -256,23 +273,32 @@ def tick() -> None:
     Called by launchd at :00/:15/:30/:45.
     """
     _require_darwin()
+    debug("tick: start")
     if silence_active():
+        debug("tick: skipped (silenced)")
         return
 
     cfg = Config.load()
     now_local = datetime.now().astimezone()
+    debug(f"tick: now={now_local.isoformat()}")
     if _quiet_hours_active(now_local):
+        debug("tick: skipped (quiet hours)")
         return
     pop_count, do_chime = compute_pop_count(now_local.minute, now_local.hour)
     if pop_count == 0:
+        debug("tick: skipped (not a chime time)")
         return
     start_minute = now_local.minute
     if do_chime:
+        debug("tick: playing chime")
         play_once(cfg.chime_wav)
         time.sleep(CHIME_DELAY)
         if datetime.now().astimezone().minute != start_minute:
+            debug("tick: minute changed after chime; skipping pops to avoid drift")
             return
+    debug(f"tick: playing {pop_count} pop(s)")
     play_repeated(cfg.pop_wav, pop_count, delay=POP_DELAY)
+    debug("tick: done")
 
 
 def main() -> None:

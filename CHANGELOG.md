@@ -1,3 +1,9 @@
+## [0.2.4] - 2025-08-10
+
+### Added
+- add global `-v/--verbose` flag and `BINGBONG_VERBOSE` env support
+- add debug output across `tick`, audio playback, silence state, and service setup
+
 ## [0.2.3] - 2025-08-10
 
 ### Added
