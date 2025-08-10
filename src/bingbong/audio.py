@@ -1,6 +1,9 @@
-from importlib.resources import files as pkg_files  # noqa: I001
-from pathlib import Path
 import logging
+import shutil
+import subprocess  # noqa: S404
+import sys
+from importlib.resources import files as pkg_files
+from pathlib import Path
 
 import simpleaudio as sa
 
@@ -28,6 +31,24 @@ def _copy_into(outdir: Path, filename: str) -> None:
         dst.write_bytes(b"\0" * 44)
 
 
+def _play_via_afplay(path: Path, logger: logging.Logger) -> bool:
+    """Try to play audio using macOS afplay. Return True on success."""
+    afplay = shutil.which("afplay") if sys.platform == "darwin" else None
+    if not afplay:
+        return False
+    try:
+        # Synchronous playback; afplay exits when the sound finishes.
+        result = subprocess.run([afplay, str(path)], capture_output=True, text=True, check=False)  # noqa: S603
+        if result.returncode != 0:
+            logger.error("afplay failed (%s): %s", result.returncode, result.stderr.strip())
+            return False
+    except (OSError, subprocess.SubprocessError):
+        logger.exception("afplay error")
+        return False
+    else:
+        return True
+
+
 def play_file(path: Path) -> None:
     logger = logging.getLogger("bingbong.audio")
     if not path.exists():
@@ -45,12 +66,23 @@ def play_file(path: Path) -> None:
         return
 
     try:
-        # simpleaudio expects standard PCM WAV
+        # Prefer afplay on macOS; it avoids rare simpleaudio crashes.
+        if _play_via_afplay(path, logger):
+            return
+
+        # Fallback: simpleaudio expects standard PCM WAV
         wave = sa.WaveObject.from_wave_file(str(path))
         play_obj = wave.play()
         play_obj.wait_done()
+        # Help GC finalize in the same thread; reduces lifetime races in C ext
+        del play_obj
+        del wave
     except (RuntimeError, OSError):
         logger.exception("Failed to play audio while playing (%s)", path)
+        # Last-ditch attempt: if simpleaudio failed and we didn't already try,
+        # give afplay one more chance (e.g., non-darwin import path).
+        if _play_via_afplay(path, logger):
+            return
         return
 
 
