@@ -5,24 +5,24 @@
     "tokens": 4
   },
   "/Users/josephcourtney/code/bingbong/AGENTS.md": {
-    "mtime": 1753749738,
-    "size": 127,
-    "tokens": 28
+    "mtime": 1754790511,
+    "size": 4743,
+    "tokens": 1115
   },
   "/Users/josephcourtney/code/bingbong/README.md": {
-    "mtime": 1754760294,
-    "size": 1795,
-    "tokens": 465
+    "mtime": 1754789050,
+    "size": 2322,
+    "tokens": 578
   },
   "/Users/josephcourtney/code/bingbong/TODO.md": {
-    "mtime": 1754775486,
-    "size": 1,
-    "tokens": 1
+    "mtime": 1754790543,
+    "size": 0,
+    "tokens": 0
   },
   "/Users/josephcourtney/code/bingbong/pyproject.toml": {
-    "mtime": 1754760508,
-    "size": 4342,
-    "tokens": 1135
+    "mtime": 1754789095,
+    "size": 4340,
+    "tokens": 1137
   },
   "/Users/josephcourtney/code/bingbong/ruff.toml": {
     "mtime": 1753760189,
@@ -30,9 +30,9 @@
     "tokens": 1729
   },
   "/Users/josephcourtney/code/bingbong/src/bingbong/__init__.py": {
-    "mtime": 1754704934,
-    "size": 197,
-    "tokens": 49
+    "mtime": 1754779820,
+    "size": 358,
+    "tokens": 92
   },
   "/Users/josephcourtney/code/bingbong/src/bingbong/__main__.py": {
     "mtime": 1746030874,
@@ -40,14 +40,14 @@
     "tokens": 86
   },
   "/Users/josephcourtney/code/bingbong/src/bingbong/audio.py": {
-    "mtime": 1754707316,
-    "size": 2229,
-    "tokens": 594
+    "mtime": 1754790960,
+    "size": 3981,
+    "tokens": 1031
   },
   "/Users/josephcourtney/code/bingbong/src/bingbong/cli.py": {
-    "mtime": 1754760294,
-    "size": 5674,
-    "tokens": 1364
+    "mtime": 1754791039,
+    "size": 6801,
+    "tokens": 1555
   },
   "/Users/josephcourtney/code/bingbong/src/bingbong/commands/__init__.py": {
     "mtime": 1753761063,
@@ -60,14 +60,14 @@
     "tokens": 146
   },
   "/Users/josephcourtney/code/bingbong/src/bingbong/commands/doctor.py": {
-    "mtime": 1753761117,
-    "size": 1630,
-    "tokens": 417
+    "mtime": 1754785967,
+    "size": 1629,
+    "tokens": 412
   },
   "/Users/josephcourtney/code/bingbong/src/bingbong/commands/logs.py": {
-    "mtime": 1753759437,
-    "size": 2523,
-    "tokens": 600
+    "mtime": 1754789050,
+    "size": 2793,
+    "tokens": 673
   },
   "/Users/josephcourtney/code/bingbong/src/bingbong/commands/silence.py": {
     "mtime": 1754707316,
@@ -75,9 +75,9 @@
     "tokens": 377
   },
   "/Users/josephcourtney/code/bingbong/src/bingbong/commands/status.py": {
-    "mtime": 1754760294,
-    "size": 1669,
-    "tokens": 442
+    "mtime": 1754786130,
+    "size": 1982,
+    "tokens": 537
   },
   "/Users/josephcourtney/code/bingbong/src/bingbong/console.py": {
     "mtime": 1754760294,
@@ -90,44 +90,44 @@
     "tokens": 27
   },
   "/Users/josephcourtney/code/bingbong/src/bingbong/ffmpeg.py": {
-    "mtime": 1754707316,
-    "size": 3469,
-    "tokens": 859
+    "mtime": 1754786889,
+    "size": 3578,
+    "tokens": 878
   },
   "/Users/josephcourtney/code/bingbong/src/bingbong/launchctl.py": {
-    "mtime": 1754760294,
+    "mtime": 1754775981,
     "size": 866,
-    "tokens": 188
+    "tokens": 184
   },
   "/Users/josephcourtney/code/bingbong/src/bingbong/notify.py": {
-    "mtime": 1754760294,
-    "size": 4775,
-    "tokens": 1206
+    "mtime": 1754791039,
+    "size": 6586,
+    "tokens": 1640
   },
   "/Users/josephcourtney/code/bingbong/src/bingbong/paths.py": {
-    "mtime": 1754760294,
-    "size": 513,
-    "tokens": 141
+    "mtime": 1754781777,
+    "size": 847,
+    "tokens": 227
   },
   "/Users/josephcourtney/code/bingbong/src/bingbong/scheduler.py": {
-    "mtime": 1754760294,
-    "size": 2164,
-    "tokens": 504
+    "mtime": 1754783512,
+    "size": 2958,
+    "tokens": 751
   },
   "/Users/josephcourtney/code/bingbong/src/bingbong/service.py": {
-    "mtime": 1754685681,
-    "size": 686,
-    "tokens": 173
+    "mtime": 1754782010,
+    "size": 678,
+    "tokens": 172
   },
   "/Users/josephcourtney/code/bingbong/src/bingbong/state.py": {
-    "mtime": 1754707316,
-    "size": 932,
-    "tokens": 235
+    "mtime": 1754782027,
+    "size": 2219,
+    "tokens": 523
   },
   "/Users/josephcourtney/code/bingbong/src/bingbong/utils.py": {
-    "mtime": 1754707316,
-    "size": 1059,
-    "tokens": 256
+    "mtime": 1754781777,
+    "size": 2161,
+    "tokens": 527
   },
   "/Users/josephcourtney/code/bingbong/tests/__init__.py": {
     "mtime": 1746030874,
@@ -135,19 +135,19 @@
     "tokens": 13
   },
   "/Users/josephcourtney/code/bingbong/tests/conftest.py": {
-    "mtime": 1754704934,
+    "mtime": 1754786465,
     "size": 2257,
-    "tokens": 505
+    "tokens": 507
   },
   "/Users/josephcourtney/code/bingbong/tests/test_audio.py": {
-    "mtime": 1754705865,
-    "size": 1951,
-    "tokens": 510
+    "mtime": 1754789050,
+    "size": 2705,
+    "tokens": 717
   },
   "/Users/josephcourtney/code/bingbong/tests/test_cli.py": {
-    "mtime": 1754760294,
-    "size": 10718,
-    "tokens": 2725
+    "mtime": 1754789050,
+    "size": 15605,
+    "tokens": 3993
   },
   "/Users/josephcourtney/code/bingbong/tests/test_console.py": {
     "mtime": 1753756835,
@@ -155,23 +155,28 @@
     "tokens": 114
   },
   "/Users/josephcourtney/code/bingbong/tests/test_ffmpeg.py": {
-    "mtime": 1754705865,
-    "size": 1701,
-    "tokens": 429
+    "mtime": 1754789050,
+    "size": 1706,
+    "tokens": 428
   },
   "/Users/josephcourtney/code/bingbong/tests/test_notify.py": {
-    "mtime": 1754760294,
-    "size": 7496,
-    "tokens": 1983
+    "mtime": 1754789066,
+    "size": 9834,
+    "tokens": 2609
   },
   "/Users/josephcourtney/code/bingbong/tests/test_scheduler.py": {
-    "mtime": 1754760294,
-    "size": 1478,
-    "tokens": 361
+    "mtime": 1754783512,
+    "size": 2136,
+    "tokens": 539
   },
   "/Users/josephcourtney/code/bingbong/tests/test_service.py": {
-    "mtime": 1754707316,
-    "size": 672,
-    "tokens": 153
+    "mtime": 1754789050,
+    "size": 706,
+    "tokens": 160
+  },
+  "/Users/josephcourtney/code/bingbong/tests/test_state.py": {
+    "mtime": 1754789050,
+    "size": 2135,
+    "tokens": 569
   }
 }

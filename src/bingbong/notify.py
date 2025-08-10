@@ -1,6 +1,7 @@
 import logging
 import shutil
 import subprocess  # noqa: S404
+import tomllib
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Protocol
@@ -50,6 +51,16 @@ class QuarterHourPolicy:
         hour = now.hour % 12 or 12
         nearest = nearest_quarter(now.minute)
         return resolve_chime_path(hour, nearest, outdir)
+
+
+def _respect_dnd_setting() -> bool:
+    """Read 'respect_dnd' from config; default True on any error."""
+    path = config_path()
+    try:
+        data = tomllib.loads(path.read_text(encoding="utf-8"))
+    except (OSError, tomllib.TOMLDecodeError):
+        return True
+    return bool(data.get("respect_dnd", True))
 
 
 def check_config_reload() -> bool:
@@ -151,8 +162,10 @@ def notify_time(outdir: Path | None = None, policy: ChimePolicy | None = None) -
     # 1) Manual pause
     if is_paused(outdir, now):
         return
-    # 2) macOS Do Not Disturb
-    if _in_dnd():
+
+    # 2) macOS Do Not Disturb (configurable)
+    respect_dnd = _respect_dnd_setting()
+    if respect_dnd and _in_dnd():
         return
 
     # 3) Determine which chime to play

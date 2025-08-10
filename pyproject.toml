@@ -1,7 +1,7 @@
 # =================================== project ====================================
 [project]
   name = "bingbong"
-version = "0.1.1"
+  version = "0.1.2"
   description = "bing, bong!"
   readme = "README.md"
   authors = [
@@ -18,12 +18,12 @@ version = "0.1.1"
   requires-python = ">=3.13"
   dependencies = [
     "click>=8.1.8",
-    "croniter>=6.0.0",
     "onginred>=0.1.0",
+    "platformdirs>=4.3.8",
     "pydantic>=2.11.7",
+    "pydub>=0.25.1",
     "rich>=14.1.0",
-    "sounddevice>=0.5.1",
-    "soundfile>=0.13.1",
+    "simpleaudio>=1.0.4",
     "tomlkit>=0.13.2",
     "ty>=0.0.1a16",
   ]

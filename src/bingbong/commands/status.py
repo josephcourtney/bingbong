@@ -1,29 +1,23 @@
 from __future__ import annotations
 
-import shutil
-import subprocess  # noqa: S404
 import tomllib
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 
 import click
-from croniter import CroniterBadCronError, croniter
 
+from bingbong import service
 from bingbong.console import ok, warn
 from bingbong.notify import is_paused
 from bingbong.paths import config_path, ensure_outdir
 
 PLIST_LABEL = "com.josephcourtney.bingbong"
+MIN_PER_HOUR = 60
 
 
 @click.command()
 def status() -> None:
     """Check whether the launchctl job is loaded and show schedule info."""
-    launchctl_path = shutil.which("launchctl")
-    if not launchctl_path:
-        warn("launchctl not found in PATH.")
-        return
-    result = subprocess.run([launchctl_path, "list"], capture_output=True, text=True, check=False)  # noqa: S603
-    if PLIST_LABEL in result.stdout:
+    if service.is_loaded():
         ok("\N{WHITE HEAVY CHECK MARK} Service is loaded.")
     else:
         warn("\N{BALLOT BOX WITH X} Service is NOT loaded.")
@@ -34,14 +28,18 @@ def status() -> None:
         return
 
     cfg = tomllib.loads(cfg_path.read_text())
-    expr = cfg.get("chime_schedule", "")
     now = datetime.now().astimezone()
+    # compute next quarter-hour locally
+    minute = now.minute
+    next_min = next(m for m in (0, 15, 30, 45, 60) if m > minute)
+    nxt = now.replace(second=0, microsecond=0)
 
-    try:
-        nxt = croniter(expr, now).get_next(datetime)
-        ok(f"Next chime: {nxt:%Y-%m-%d %H:%M} (local)")  # "include date for clarity"
-    except (CroniterBadCronError, ValueError):
-        ok("Invalid cron in configuration")
+    nxt = (
+        nxt.replace(minute=0) + timedelta(hours=1)
+        if next_min == MIN_PER_HOUR
+        else nxt.replace(minute=next_min)
+    )
+    ok(f"Next chime: {nxt:%Y-%m-%d %H:%M} (local)")  # "include date for clarity"
 
     for rng in cfg.get("suppress_schedule", []):
         start_s, end_s = rng.split("-")

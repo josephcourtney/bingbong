@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import click
 
-from bingbong import audio, ffmpeg
+from bingbong import audio
 from bingbong.console import err, ok
 from bingbong.errors import BingBongError
 from bingbong.utils import dryable
@@ -12,10 +12,7 @@ from bingbong.utils import dryable
 @click.pass_context
 @dryable("would build audio files")
 def build(_ctx: click.Context) -> None:
-    """Build composite chime audio files."""
-    if not ffmpeg.ffmpeg_available():
-        err("ffmpeg is not available")
-        return
+    """Populate chime/quarter/hour audio files from packaged assets."""
     try:
         audio.build_all()
         ok("Built chime and quarter audio files.")

@@ -1,4 +1,5 @@
 import logging
+import types
 from pathlib import Path
 
 from bingbong import audio
@@ -19,12 +20,14 @@ def test_play_file_exception(monkeypatch, tmp_path, caplog):
     dummy_file = tmp_path / "bad.wav"
     dummy_file.write_text("not really wav data")
 
-    # Patch soundfile.read to raise an error
-    def fake_read(_path, _dtype=None):
-        msg = "bad format"
-        raise RuntimeError(msg)
+    # Patch simpleaudio to raise when reading file
+    class Boom:
+        @staticmethod
+        def from_wave_file(_p):
+            msg = "bad format"
+            raise RuntimeError(msg)
 
-    monkeypatch.setattr(audio.sf, "read", fake_read)
+    monkeypatch.setattr(audio.sa, "WaveObject", types.SimpleNamespace(from_wave_file=Boom.from_wave_file))
 
     with caplog.at_level(logging.ERROR):
         audio.play_file(dummy_file)
@@ -39,29 +42,11 @@ def test_play_file_too_large(tmp_path, caplog):
     assert "file too large" in caplog.text
 
 
-def test_play_file_empty_buffer(monkeypatch, tmp_path, caplog):
-    dummy = tmp_path / "empty.wav"
+def test_play_file_handles_small_wav(tmp_path):
+    # Minimal WAV header; playback is stubbed by conftest
+    dummy = tmp_path / "ok.wav"
     dummy.write_bytes(b"\0" * 44)
-    monkeypatch.setattr(audio.sf, "read", lambda *_: ([], 44100))
-    with caplog.at_level(logging.ERROR):
-        play_file(dummy)
-    assert "empty audio buffer" in caplog.text
-
-
-def test_make_quarters_creates_expected_files(tmp_path):
-    audio.make_silence(tmp_path)
-    audio.make_quarters(tmp_path)
-    for n in QUARTERS:
-        path = tmp_path / f"quarter_{n}.wav"
-        assert path.exists()
-
-
-def test_make_hours_creates_expected_files(tmp_path):
-    audio.make_silence(tmp_path)
-    audio.make_hours(tmp_path)
-    for hour in HOURS:
-        path = tmp_path / f"hour_{hour}.wav"
-        assert path.exists()
+    play_file(dummy)
 
 
 def test_build_all_creates_everything(tmp_path):
@@ -76,14 +61,9 @@ def test_build_all_creates_everything(tmp_path):
     assert (tmp_path / "silence.wav").exists()
 
 
-def test_play_file_success(monkeypatch, tmp_path):
+def test_play_file_success(tmp_path):
     dummy_wav = tmp_path / "good.wav"
     dummy_wav.write_bytes(b"\0" * 44)  # fake minimal WAV header
-
-    monkeypatch.setattr("bingbong.audio.sf.read", lambda *_a, **_k: ([0.0], 44100))
-    monkeypatch.setattr("bingbong.audio.sd.play", lambda _data, _fs: None)
-    monkeypatch.setattr("bingbong.audio.sd.wait", lambda: None)
-
     audio.play_file(dummy_wav)
 
 

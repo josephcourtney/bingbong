@@ -1,5 +1,6 @@
 {
   "exclude_tree": [
+    "scripts/",
     "__pycache__/",
     ".coverage",
     ".grobl.tokens.json",

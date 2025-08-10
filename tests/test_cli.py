@@ -1,8 +1,6 @@
 import json
-import shutil
 import subprocess
 import sys
-import tomllib
 from importlib.metadata import version
 from pathlib import Path
 
@@ -166,11 +164,7 @@ def test_cli_clean_when_empty(monkeypatch, tmp_path):
 
 
 def test_cli_status(monkeypatch, tmp_path):
-    monkeypatch.setattr(
-        "subprocess.run",
-        lambda *_, **__: subprocess.CompletedProcess([], 0, stdout="com.josephcourtney.bingbong", stderr=""),
-    )
-    monkeypatch.setattr(shutil, "which", lambda _cmd: "/bin/launchctl")
+    monkeypatch.setattr("bingbong.service.is_loaded", lambda: True)
     monkeypatch.setattr("bingbong.paths.config_path", lambda: tmp_path / "config.toml")
     result = CliRunner().invoke(main, ["status"])
     assert "Service is loaded" in result.output
@@ -222,12 +216,6 @@ def test_cli_logs_rotate(monkeypatch, tmp_path):
     assert (tmp_path / "bingbong.out.1").exists()
 
 
-def test_cli_build_missing_ffmpeg(monkeypatch):
-    monkeypatch.setattr("bingbong.ffmpeg.ffmpeg_available", lambda: False)
-    result = CliRunner().invoke(main, ["build"])
-    assert "ffmpeg is not available" in result.output
-
-
 def test_main_module_entrypoint():
     result = subprocess.run([sys.executable, "-m", "bingbong"], capture_output=True, text=True, check=False)
     assert "Usage" in result.stdout
@@ -235,8 +223,6 @@ def test_main_module_entrypoint():
 
 
 def test_cli_build_runtime_error(monkeypatch):
-    monkeypatch.setattr("bingbong.ffmpeg.ffmpeg_available", lambda: True)
-
     def fake_build(*_args):
         msg = "boom"
         raise RuntimeError(msg)
@@ -249,10 +235,10 @@ def test_cli_build_runtime_error(monkeypatch):
 
 
 def test_cli_status_not_loaded(monkeypatch, tmp_path):
-    monkeypatch.setattr(
-        "subprocess.run", lambda *_, **__: subprocess.CompletedProcess([], 0, stdout="", stderr="")
-    )
-    monkeypatch.setattr(shutil, "which", lambda _cmd: "/bin/launchctl")
+    monkeypatch.setattr("bingbong.service.is_loaded", lambda: False)
+    monkeypatch.setattr("bingbong.paths.config_path", lambda: tmp_path / "config.toml")
+    result = CliRunner().invoke(main, ["status"])
+    assert "NOT loaded" in result.output
     monkeypatch.setattr("bingbong.paths.config_path", lambda: tmp_path / "config.toml")
     result = CliRunner().invoke(main, ["status"])
     assert "NOT loaded" in result.output
@@ -313,14 +299,8 @@ def test_silence_toggle(tmp_path, monkeypatch):
 def test_cli_doctor_success(monkeypatch, tmp_path):
     audio.build_all(tmp_path)
     monkeypatch.setattr("shutil.which", lambda _: "/bin/launchctl")
+    monkeypatch.setattr("bingbong.service.is_loaded", lambda: True)
     monkeypatch.setattr("bingbong.paths.ensure_outdir", lambda: tmp_path)
-    monkeypatch.setattr(
-        "subprocess.run",
-        lambda *_a, **_kw: subprocess.CompletedProcess(
-            [], 0, stdout="com.josephcourtney.bingbong", stderr=""
-        ),
-    )
-    monkeypatch.setattr("bingbong.ffmpeg.ffmpeg_available", lambda: True)
     result = CliRunner().invoke(main, ["doctor"])
     assert "All systems go" in result.output
 
@@ -336,10 +316,7 @@ def test_cli_doctor_launchctl_not_loaded(monkeypatch, tmp_path):
     audio.build_all(tmp_path)
     monkeypatch.setattr("bingbong.paths.ensure_outdir", lambda: tmp_path)
     monkeypatch.setattr("shutil.which", lambda _: "/bin/launchctl")
-    monkeypatch.setattr(
-        "subprocess.run", lambda *_, **__: subprocess.CompletedProcess([], 0, stdout="", stderr="")
-    )
-    monkeypatch.setattr("bingbong.ffmpeg.ffmpeg_available", lambda: False)
+    monkeypatch.setattr("bingbong.service.is_loaded", lambda: False)
 
     result = CliRunner().invoke(main, ["doctor"])
     assert "NOT loaded" in result.output
@@ -351,83 +328,27 @@ def test_cli_doctor_missing_audio(monkeypatch, tmp_path):
 
     monkeypatch.setattr("bingbong.paths.ensure_outdir", lambda: tmp_path)
     monkeypatch.setattr("shutil.which", lambda _: "/bin/launchctl")
-    monkeypatch.setattr(
-        "subprocess.run",
-        lambda *_a, **_kw: subprocess.CompletedProcess(
-            [], 0, stdout="com.josephcourtney.bingbong", stderr=""
-        ),
-    )
-    monkeypatch.setattr("bingbong.ffmpeg.ffmpeg_available", lambda: False)
+    monkeypatch.setattr("bingbong.service.is_loaded", lambda: True)
 
     result = CliRunner().invoke(main, ["doctor"])
     assert "Missing audio files" in result.output
     assert "hour_12.wav" in result.output
 
 
-def test_cli_doctor_missing_ffmpeg(monkeypatch, tmp_path):
-    monkeypatch.setattr("bingbong.paths.ensure_outdir", lambda: tmp_path)
-    monkeypatch.setattr("shutil.which", lambda _: "/bin/launchctl")
-    monkeypatch.setattr("bingbong.ffmpeg.ffmpeg_available", lambda: False)
-    monkeypatch.setattr(
-        "subprocess.run",
-        lambda *_a, **_kw: subprocess.CompletedProcess(
-            [], 0, stdout="com.josephcourtney.bingbong", stderr=""
-        ),
-    )
-    result = CliRunner().invoke(main, ["doctor"])
-    assert "FFmpeg cannot be found" in result.output
-
-
 def test_cli_doctor_failure_exit(monkeypatch, tmp_path):
     monkeypatch.setattr("bingbong.paths.ensure_outdir", lambda: tmp_path)
     monkeypatch.setattr("shutil.which", lambda _: "/bin/launchctl")
-    monkeypatch.setattr("bingbong.ffmpeg.ffmpeg_available", lambda: False)
-    monkeypatch.setattr(
-        "subprocess.run", lambda *_, **__: subprocess.CompletedProcess([], 0, stdout="", stderr="")
-    )
+    monkeypatch.setattr("bingbong.service.is_loaded", lambda: False)
 
     result = CliRunner().invoke(main, ["doctor"])
     assert "Woe! One or more checks failed" in result.output
     assert result.exit_code == 1
 
 
-def test_configure_happy_path(tmp_path, monkeypatch):
-    cfg_path = tmp_path / "config.toml"
-    monkeypatch.setattr("bingbong.cli.config_path", lambda: cfg_path)
-    responses = iter([
-        "*/15 * * * *",
-        "y",
-        "08:00-09:00",
-        "n",
-        "y",
-        "UTC",
-        "",
-    ])
-    monkeypatch.setattr("bingbong.cli.get_input", lambda _p: next(responses))
-    result = CliRunner().invoke(main, ["configure"])
-    assert result.exit_code == 0
-    data = tomllib.loads(cfg_path.read_text())
-    assert data["chime_schedule"] == "*/15 * * * *"
-    assert data["suppress_schedule"] == ["08:00-09:00"]
-    assert data["respect_dnd"] is True
-    assert data["timezone"] == "UTC"
-
-
-def test_configure_invalid_cron(tmp_path, monkeypatch):
-    cfg_path = tmp_path / "config.toml"
-    monkeypatch.setattr("bingbong.cli.config_path", lambda: cfg_path)
-    responses = iter(["bad cron"])
-    monkeypatch.setattr("bingbong.cli.get_input", lambda _p: next(responses))
-    result = CliRunner().invoke(main, ["configure"])
-    assert result.exit_code != 0
-    assert "Invalid cron" in result.output
-
-
 def test_configure_bad_timezone(tmp_path, monkeypatch):
     cfg_path = tmp_path / "config.toml"
     monkeypatch.setattr("bingbong.cli.config_path", lambda: cfg_path)
     responses = iter([
-        "0 * * * *",
         "n",
         "y",
         "Bad/Zone",
@@ -443,7 +364,6 @@ def test_configure_invalid_paths(tmp_path, monkeypatch):
     cfg_path = tmp_path / "config.toml"
     monkeypatch.setattr("bingbong.cli.config_path", lambda: cfg_path)
     responses = iter([
-        "0 * * * *",
         "n",
         "n",
         "UTC",

@@ -1,24 +1,25 @@
 from __future__ import annotations
 
-import os
 import time
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 import click
 from rich.text import Text
 
 from bingbong.console import get_console
+from bingbong.paths import ensure_outdir
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from rich.console import Console
 
 
-XDG_DATA_HOME = Path(os.getenv("XDG_DATA_HOME", Path.home() / ".local" / "share"))
-DEFAULT_LOG_DIR = XDG_DATA_HOME / "bingbong"
+LOG_ROTATE_SIZE = 10 * 1024 * 1024
+
+DEFAULT_LOG_DIR = ensure_outdir()
 STDOUT_LOG = DEFAULT_LOG_DIR / "bingbong.out"
 STDERR_LOG = DEFAULT_LOG_DIR / "bingbong.err"
-LOG_ROTATE_SIZE = 10 * 1024 * 1024
 
 
 def _print_log(log: Path, *, lines: int | None, follow: bool, console: Console) -> None:

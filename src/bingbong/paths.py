@@ -1,15 +1,17 @@
-from os import getenv
 from pathlib import Path
+
+from platformdirs import PlatformDirs
 
 from .errors import BingBongError
 
-XDG_DATA_HOME = Path(getenv("XDG_DATA_HOME", Path.home() / ".local" / "share"))
-DEFAULT_OUTDIR = XDG_DATA_HOME / "bingbong"
-
-XDG_CONFIG_HOME = Path(getenv("XDG_CONFIG_HOME", Path.home() / ".config"))
+# Public aliases kept for test/back-compat while using platformdirs under the hood
+_DIRS = PlatformDirs(appname="bingbong", appauthor=False)
+DEFAULT_OUTDIR = Path(_DIRS.user_data_dir)
+_CONFIG_DIR = Path(_DIRS.user_config_dir)
 
 
 def ensure_outdir() -> Path:
+    """Ensure and return the per-user data directory."""
     try:
         DEFAULT_OUTDIR.mkdir(parents=True, exist_ok=True)
     except OSError as e:
@@ -19,10 +21,10 @@ def ensure_outdir() -> Path:
 
 
 def config_path() -> Path:
-    cfg_dir = XDG_CONFIG_HOME / "bingbong"
+    """Ensure and return the path to the user config file."""
     try:
-        cfg_dir.mkdir(parents=True, exist_ok=True)
+        _CONFIG_DIR.mkdir(parents=True, exist_ok=True)
     except OSError as e:
-        msg = f"Unable to create config directory at {cfg_dir}: {e}"
+        msg = f"Unable to create config directory at {_CONFIG_DIR}: {e}"
         raise BingBongError(msg) from e
-    return cfg_dir / "config.toml"
+    return _CONFIG_DIR / "config.toml"

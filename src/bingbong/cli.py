@@ -1,8 +1,6 @@
 import contextlib
-import logging
 import re
 import shutil
-import tempfile
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as pkg_version
 from pathlib import Path
@@ -10,7 +8,6 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import click
 from click.shell_completion import get_completion_class
-from croniter import croniter
 from tomlkit import dumps
 
 from . import console, launchctl, notify
@@ -23,24 +20,9 @@ from .paths import config_path, ensure_outdir
 from .scheduler import ChimeScheduler
 from .utils import dryable
 
-LOG_ROTATE_SIZE = 10 * 1024 * 1024  # rotate logs larger than 10 MB
-
-with tempfile.NamedTemporaryFile(prefix="bingbong-out-", delete=False) as out_fh:
-    STDOUT_LOG = Path(out_fh.name)
-with tempfile.NamedTemporaryFile(prefix="bingbong-err-", delete=False) as err_fh:
-    STDERR_LOG = Path(err_fh.name)
-
-PLIST_LABEL = "com.josephcourtney.bingbong"
-
-console.setup_logging()
-logger = logging.getLogger("bingbong")
-
-
 pkg_version_str = "0.0.0"
 with contextlib.suppress(PackageNotFoundError):
     pkg_version_str = pkg_version("bingbong")
-
-LOG_ROTATE_SIZE = 10 * 1024 * 1024  # should be enforced by logs command (not here)
 
 
 def get_input(prompt: str) -> str:
@@ -55,6 +37,7 @@ def get_input(prompt: str) -> str:
 def main(ctx: click.Context, *, dry_run: bool) -> None:
     """Time-based macOS notifier."""
     ctx.ensure_object(dict)
+    console.setup_logging()
     ctx.obj["dry_run"] = dry_run
 
 
@@ -155,11 +138,7 @@ def configure():
     """Interactive wizard to write config.toml."""
     cfg_path = config_path()
 
-    click.echo("Enter cron expression for chime schedule:")
-    cron_expr = get_input("> ").strip()
-    if not croniter.is_valid(cron_expr):
-        console.err("Invalid cron")
-        raise SystemExit(1)
+    click.echo("Chimes run on the quarter-hour (00, 15, 30, 45).")
 
     suppress_list: list[str] = []
     click.echo("Enable suppression windows? (y/n)")
@@ -167,10 +146,11 @@ def configure():
         while True:
             click.echo("Enter suppression window as HH:MM-HH:MM:")
             rng = get_input("> ").strip()
-            if not re.match(r"^[0-2]\d:[0-5]\d-[0-2]\d:[0-5]\d$", rng):
+            if not re.match(r"^[0-2]\d:[0-5]\d\s*-\s*[0-2]\d:[0-5]\d$", rng):
                 console.err("Invalid time range")
                 raise SystemExit(1)
-            suppress_list.append(rng)
+            rng_norm = re.sub(r"\s*-\s*", "-", rng.strip())
+            suppress_list.append(rng_norm)
             click.echo("Add another suppression window? (y/n)")
             if not get_input("> ").lower().startswith("y"):
                 break
@@ -195,7 +175,6 @@ def configure():
     paths = raw_paths
 
     cfg = {
-        "chime_schedule": cron_expr,
         "suppress_schedule": suppress_list,
         "respect_dnd": respect,
         "timezone": tz,

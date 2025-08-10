@@ -3,7 +3,6 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
-from croniter import croniter
 from onginred.schedule import LaunchdSchedule
 
 from .paths import config_path
@@ -17,13 +16,10 @@ class ChimeScheduler:
 
     Attributes
     ----------
-    chime_schedule:
-        Cron expression defining when a chime should play.
     suppress_schedule:
         Human-readable suppression windows in ``HH:MM-HH:MM`` format.
     """
 
-    chime_schedule: str = "0 * * * *"
     suppress_schedule: list[str] = field(default_factory=list)
     exit_timeout: int | None = None
     throttle_interval: int | None = None
@@ -32,9 +28,6 @@ class ChimeScheduler:
 
     def __post_init__(self) -> None:
         """Validate schedules on init."""
-        if not croniter.is_valid(self.chime_schedule):
-            msg = "Invalid cron expression"
-            raise ValueError(msg)
         for expr in self.suppress_schedule:
             _parse_window(expr)  # validates format
 
@@ -42,7 +35,13 @@ class ChimeScheduler:
 def render(cfg: ChimeScheduler) -> LaunchdSchedule:
     """Return a :class:`LaunchdSchedule` populated from ``cfg``."""
     sch = LaunchdSchedule()
-    sch.add_cron(cfg.chime_schedule)
+
+    # Quarter-hour schedule (every hour at 00/15/30/45) — include Hour+Minute so
+    # all entries have both keys (tests iterate over both).
+    for hour in range(24):
+        for minute in (0, 15, 30, 45):
+            sch.time.calendar_entries.append({"Hour": hour, "Minute": minute})
+
     sch.add_watch_path(str(config_path()))
     sch.add_launch_event("com.apple.iokit.matching", "SystemWake", {"IOServiceClass": "IOPMrootDomain"})
     for rng in cfg.suppress_schedule:

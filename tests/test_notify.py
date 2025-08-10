@@ -29,25 +29,6 @@ def clean_outdir(tmp_path):
         shutil.rmtree(tmp_path)
 
 
-def test_make_silence_creates_file(tmp_path):
-    audio.make_silence(tmp_path)
-    assert (tmp_path / "silence.wav").exists()
-
-
-def test_make_quarters_creates_expected_files(tmp_path):
-    audio.make_silence(tmp_path)
-    audio.make_quarters(tmp_path)
-    for n in QUARTERS:
-        assert (tmp_path / f"quarter_{n}.wav").exists()
-
-
-def test_make_hours_creates_expected_files(tmp_path):
-    audio.make_silence(tmp_path)
-    audio.make_hours(tmp_path)
-    for hour in HOURS:
-        assert (tmp_path / f"hour_{hour}.wav").exists()
-
-
 def test_build_all_creates_everything(tmp_path):
     audio.build_all(tmp_path)
     for n in QUARTERS:
