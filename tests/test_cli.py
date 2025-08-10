@@ -3,11 +3,11 @@ from pathlib import Path
 from click.testing import CliRunner
 
 from bingbong import __version__  # noqa: F401  # simple import sanity check
-from bingbong.cli import _default_wavs, cli, compute_pop_count, main
+from bingbong.cli import _default_wavs, cli, compute_pop_count
 
 
 def test_import():
-    assert main
+    assert cli
     # The CLI group should import and be invokable.
     assert callable(cli)
 

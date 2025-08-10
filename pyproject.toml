@@ -1,7 +1,7 @@
 # =================================== project ====================================
 [project]
   name = "bingbong"
-  version = "0.2.0"
+version = "0.2.2"
   description = "bing, bong!"
   readme = "README.md"
   authors = [
@@ -23,7 +23,7 @@
   ]
 
   [project.scripts]
-    bingbong = "bingbong.cli:main"
+    bingbong = "bingbong.cli:cli"
 
 [dependency-groups]
   dev = [
