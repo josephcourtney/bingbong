@@ -1,7 +1,7 @@
 # =================================== project ====================================
 [project]
   name = "bingbong"
-version = "0.2.2"
+version = "0.2.3"
   description = "bing, bong!"
   readme = "README.md"
   authors = [
@@ -54,18 +54,6 @@ version = "0.2.2"
     ]
 
 # =================================== typecheck ===================================
-[tool.basedpyright]
-  typeCheckingMode = "recommended"
-  pythonVersion = "3.13"
-  pythonPlatform = "Darwin"
-  reportImplicitOverride = false
-  reportMissingTypeStubs = false
-  reportUnusedParameter = false
-  executionEnvironments = [
-    { root = "tests", reportPrivateUsage = false, reportUnusedCallResult = false, extraPaths = [] },
-  ]
-
-
 # =================================== test ===================================
 [tool.pytest.ini_options]
   addopts = [

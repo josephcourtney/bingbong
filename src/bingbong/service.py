@@ -6,6 +6,8 @@ from onginred.service import LaunchdService
 from bingbong.config import LABEL
 from bingbong.constants import QUARTER_1, QUARTER_2, QUARTER_3
 
+__all__ = ["build_schedule", "service"]
+
 
 # We build a fixed StartCalendarInterval set for :00/:15/:30/:45 across 24h.
 def build_schedule() -> LaunchdSchedule:

@@ -6,6 +6,13 @@ from datetime import UTC, datetime, timedelta
 from bingbong.config import app_support, silence_path
 from bingbong.constants import QUARTER_1, QUARTER_2, QUARTER_3
 
+__all__ = [
+    "compute_pop_count",
+    "get_silence_until",
+    "set_silence_for",
+    "silence_active",
+]
+
 
 def get_silence_until() -> datetime | None:
     path = silence_path()
