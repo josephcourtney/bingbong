@@ -24,7 +24,7 @@ def _concat_to(outdir: Path, pieces: Sequence[str | Path], filename: str, ffmpeg
     concat([*pieces], outdir / filename, outdir=outdir, runner=ffmpeg)
 
 
-def play_file(path: Path) -> None:
+def play_file(path: Path) -> None:  # noqa: PLR0911
     logger = logging.getLogger("bingbong.audio")
     if not path.exists():
         logger.error("Failed to play audio: file not found (%s)", path)
@@ -66,7 +66,7 @@ def duck_others() -> None:
 
     No-op stub; override in real implementations.
     """
-    return
+    logging.getLogger("bingbong.audio").debug("duck_others() noop")
 
 
 def make_quarters(outdir: Path | None = None, ffmpeg: FFmpeg | None = None) -> None:

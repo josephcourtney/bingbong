@@ -8,10 +8,12 @@ def test_plist_round_trip(tmp_path, monkeypatch):
     monkeypatch.setattr(paths, "ensure_outdir", lambda: tmp_path)
 
     class DummyLC:
-        def load(self, path):
+        @staticmethod
+        def load(_path):
             return subprocess.CompletedProcess([], 0)
 
-        def unload(self, path):
+        @staticmethod
+        def unload(_path):
             return subprocess.CompletedProcess([], 0)
 
     monkeypatch.setattr("onginred.service.LaunchctlClient", DummyLC)

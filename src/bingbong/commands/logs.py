@@ -18,6 +18,7 @@ XDG_DATA_HOME = Path(os.getenv("XDG_DATA_HOME", Path.home() / ".local" / "share"
 DEFAULT_LOG_DIR = XDG_DATA_HOME / "bingbong"
 STDOUT_LOG = DEFAULT_LOG_DIR / "bingbong.out"
 STDERR_LOG = DEFAULT_LOG_DIR / "bingbong.err"
+LOG_ROTATE_SIZE = 10 * 1024 * 1024
 
 
 def _print_log(log: Path, *, lines: int | None, follow: bool, console: Console) -> None:
@@ -50,6 +51,13 @@ def _print_log(log: Path, *, lines: int | None, follow: bool, console: Console) 
         print_lines(all_lines)
 
 
+def _rotate(log: Path) -> None:
+    if log.exists() and log.stat().st_size > LOG_ROTATE_SIZE:
+        backup = log.with_suffix(log.suffix + ".1")
+        backup.unlink(missing_ok=True)
+        log.rename(backup)
+
+
 @click.command()
 @click.option("--clear", is_flag=True, help="Clear log files instead of displaying them.")
 @click.option("--lines", type=int, help="Show only the last N lines of each log.")
@@ -59,6 +67,7 @@ def logs(*, clear: bool, lines: int | None, follow: bool, no_color: bool) -> Non
     """Display or clear the latest logs for the launchctl job."""
     console = get_console(no_color=no_color)
     for log in [STDOUT_LOG, STDERR_LOG]:
+        _rotate(log)
         console.print(f"\n[bold underline]{log}[/]")
         if clear:
             if log.exists():

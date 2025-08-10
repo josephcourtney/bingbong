@@ -8,11 +8,12 @@ from typing import Protocol
 from . import audio, state
 from .audio import build_all
 from .console import ok
-from .paths import ensure_outdir
+from .paths import config_path, ensure_outdir
 
 logger = logging.getLogger("bingbong.notify")
 
 HOURS_ON_CLOCK = 12
+_cfg_mtime: float | None = None
 
 
 class ChimePolicy(Protocol):
@@ -49,6 +50,24 @@ class QuarterHourPolicy:
         hour = now.hour % 12 or 12
         nearest = nearest_quarter(now.minute)
         return resolve_chime_path(hour, nearest, outdir)
+
+
+def check_config_reload() -> bool:
+    """Return True if the config file changed since last check."""
+    global _cfg_mtime  # noqa: PLW0603
+    path = config_path()
+    try:
+        mtime = path.stat().st_mtime
+    except OSError:
+        return False
+    if _cfg_mtime is None:
+        _cfg_mtime = mtime
+        return False
+    if mtime != _cfg_mtime:
+        _cfg_mtime = mtime
+        logger.info("Configuration reload detected")
+        return True
+    return False
 
 
 def is_paused(outdir: Path, now: datetime) -> datetime | None:

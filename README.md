@@ -47,9 +47,20 @@ The `install` command accepts several flags for tuning launchd behavior:
 Configuration is stored at `~/.config/bingbong/config.toml` and supports:
 
 - `chime_schedule` – cron expression for chimes
-- `suppress_schedule` – list of suppression windows
+- `suppress_schedule` – list of suppression windows in `HH:MM-HH:MM` format
 - `respect_dnd` – skip chimes during Do Not Disturb
 - `timezone` – IANA timezone name
 - `custom_sounds` – paths to override default sounds
 
 The launchd service watches this file and reloads itself when it changes.
+
+Chime selection can be customised by providing a strategy object to `notify.notify_time()`. The default `QuarterHourPolicy` plays a chime on the hour and pop clusters on quarter-hours, but other policies can be injected for different schedules.
+
+To temporarily pause chimes:
+
+```bash
+bingbong silence --minutes 10  # pause for ten minutes
+bingbong silence               # toggle to resume
+```
+
+All chime events are logged via the internal console/logger and include ISO timestamps and the file played.

@@ -41,6 +41,16 @@ def test_state_filters_unknown_keys_and_rewrites(tmp_path, monkeypatch):
     assert saved == data
 
 
+def test_state_load_non_dict(tmp_path, monkeypatch):
+    monkeypatch.setattr("bingbong.paths.DEFAULT_OUTDIR", tmp_path)
+    outdir = ensure_outdir()
+    path = outdir / state_mod.STATE_FILE
+    path.write_text("[]", encoding="utf-8")
+    data = state_mod.load(outdir)
+    assert data == {}
+    assert not path.exists()
+
+
 def test_state_save_atomic(tmp_path, monkeypatch):
     monkeypatch.setattr("bingbong.paths.DEFAULT_OUTDIR", tmp_path)
     outdir = ensure_outdir()
