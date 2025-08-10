@@ -17,7 +17,7 @@ def doctor() -> None:
 
     launchctl_path = shutil.which("launchctl")
     if not launchctl_path:
-        err("launchctl' not found in PATH.")
+        err("launchctl not found in PATH.")
         raise SystemExit(1)
 
     result = subprocess.run([launchctl_path, "list"], capture_output=True, text=True, check=False)  # noqa: S603

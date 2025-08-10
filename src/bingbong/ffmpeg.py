@@ -13,11 +13,16 @@ from .paths import ensure_outdir
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-__all__ = ["FFmpeg", "concat", "ffmpeg_available", "find_ffmpeg", "make_silence"]
+__all__ = ["FFmpeg", "concat", "ffmpeg_available", "find_ffmpeg", "get_ffmpeg", "make_silence"]
 
 DATA = files("bingbong.data")
 POP = DATA / "pop.wav"
 CHIME = DATA / "chime.wav"
+
+
+def get_ffmpeg() -> FFmpeg:
+    """Return an FFmpeg instance."""
+    return FFmpeg()
 
 
 @cache
@@ -111,7 +116,7 @@ def concat(
 ) -> None:
     """Concatenate ``inputs`` into ``output`` using ``ffmpeg``."""
     path_inputs = [Path(p) for p in inputs]
-    (runner or FFmpeg()).concat(path_inputs, output, outdir)
+    (runner or get_ffmpeg()).concat(path_inputs, output, outdir)
 
 
 def make_silence(
@@ -121,4 +126,4 @@ def make_silence(
     runner: FFmpeg | None = None,
 ) -> None:
     """Generate a silent WAV of ``duration`` seconds."""
-    (runner or FFmpeg()).make_silence(outdir, duration)
+    (runner or get_ffmpeg()).make_silence(outdir, duration)

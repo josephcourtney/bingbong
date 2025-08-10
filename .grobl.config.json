@@ -2,6 +2,7 @@
   "exclude_tree": [
     "__pycache__/",
     ".coverage",
+    ".grobl.tokens.json",
     ".grobl.config.json",
     ".pre-commit-config.yaml",
     ".coverage",

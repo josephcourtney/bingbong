@@ -40,6 +40,13 @@ pkg_version_str = "0.0.0"
 with contextlib.suppress(PackageNotFoundError):
     pkg_version_str = pkg_version("bingbong")
 
+LOG_ROTATE_SIZE = 10 * 1024 * 1024  # should be enforced by logs command (not here)
+
+
+def get_input(prompt: str) -> str:
+    """Small indirection over `input()` so tests can monkeypatch it."""
+    return input(prompt)
+
 
 @click.group()
 @click.option("--dry-run", is_flag=True, help="Simulate actions without changes.")
@@ -144,30 +151,30 @@ def configure():
     cfg_path = config_path()
 
     click.echo("Enter cron expression for chime schedule:")
-    cron_expr = input().strip()
+    cron_expr = get_input("> ").strip()
     if not croniter.is_valid(cron_expr):
         click.echo("Invalid cron")
         raise SystemExit(1)
 
     suppress_list: list[str] = []
     click.echo("Enable suppression windows? (y/n)")
-    if input().lower().startswith("y"):
+    if get_input("> ").lower().startswith("y"):
         while True:
             click.echo("Enter suppression window as HH:MM-HH:MM:")
-            rng = input().strip()
+            rng = get_input("> ").strip()
             if not re.match(r"^[0-2]\d:[0-5]\d-[0-2]\d:[0-5]\d$", rng):
                 click.echo("Invalid time range")
                 raise SystemExit(1)
             suppress_list.append(rng)
             click.echo("Add another suppression window? (y/n)")
-            if not input().lower().startswith("y"):
+            if not get_input("> ").lower().startswith("y"):
                 break
 
     click.echo("Respect Do Not Disturb? (y/n)")
-    respect = input().lower().startswith("y")
+    respect = get_input("> ").lower().startswith("y")
 
     click.echo("Enter timezone:")
-    tz = input().strip()
+    tz = get_input("> ").strip()
     try:
         ZoneInfo(tz)
     except ZoneInfoNotFoundError:
@@ -175,7 +182,7 @@ def configure():
         raise SystemExit(1) from None
 
     click.echo("Enter custom sound paths, comma-separated:")
-    raw_paths = [p.strip() for p in input().split(",") if p.strip()]
+    raw_paths = [p.strip() for p in get_input("> ").split(",") if p.strip()]
     invalid = [p for p in raw_paths if not Path(p).is_file()]
     if invalid:
         click.echo(f"Invalid sound paths: {', '.join(invalid)}")

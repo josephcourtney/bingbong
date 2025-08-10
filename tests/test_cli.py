@@ -290,7 +290,7 @@ def test_cli_doctor_success(monkeypatch, tmp_path):
 def test_cli_doctor_missing_launchctl(monkeypatch):
     monkeypatch.setattr("shutil.which", lambda _: None)
     result = CliRunner().invoke(main, ["doctor"])
-    assert "launchctl' not found" in result.output
+    assert "launchctl not found" in result.output
     assert result.exit_code == 1
 
 

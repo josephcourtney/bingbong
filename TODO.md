@@ -47,7 +47,6 @@
   - In `status`, show the evaluated next chime in local time with date, and explicitly print suppression & pause states (already partially there). (`src/bingbong/commands/status.py`)
   - Tests for doctor/status messages. (`tests/test_cli.py`)
 - [ ] Ruff/Python version alignment
-  - Align Ruff `target-version` to `py313` to match `requires-python = ">=3.13"`. (`ruff.toml`)
   - Add a note in `AGENTS.md` to run `ruff format` after the change.
 - [ ] Docs & examples
   - README: document suppression window format (`HH:MM-HH:MM`) and the new strategy hook for custom schedules. (`README.md`)

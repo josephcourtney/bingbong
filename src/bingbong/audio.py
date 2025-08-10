@@ -1,5 +1,6 @@
 import logging
 import math
+from collections.abc import Sequence
 from importlib.resources import files
 from pathlib import Path
 
@@ -15,6 +16,12 @@ POP = str(DATA / "pop.wav")
 CHIME = str(DATA / "chime.wav")
 SILENCE = str(DATA / "silence.wav")
 POPS_PER_CLUSTER = 3
+MAX_PLAY_BYTES = 25 * 1024 * 1024  # "skip absurdly large files to avoid memory churn"
+
+
+def _concat_to(outdir: Path, pieces: Sequence[str | Path], filename: str, ffmpeg: FFmpeg | None) -> None:
+    """Concatenate ``pieces`` into ``outdir/filename``."""
+    concat([*pieces], outdir / filename, outdir=outdir, runner=ffmpeg)
 
 
 def play_file(path: Path) -> None:
@@ -24,6 +31,13 @@ def play_file(path: Path) -> None:
         return
     if not path.is_file():
         logger.error("Failed to play audio: not a file (%s)", path)
+        return
+    try:
+        size = path.stat().st_size
+    except OSError:
+        size = 0
+    if size > MAX_PLAY_BYTES:
+        logger.error("Failed to play audio: file too large (%s bytes): %s", size, path)
         return
 
     try:
@@ -60,8 +74,7 @@ def make_quarters(outdir: Path | None = None, ffmpeg: FFmpeg | None = None) -> N
         outdir = ensure_outdir()
     for n in range(1, 4):
         pops = [POP] * n
-        output = outdir / f"quarter_{n}.wav"
-        concat([str(outdir / "silence.wav"), *pops], output, outdir=outdir, runner=ffmpeg)
+        _concat_to(outdir, [str(outdir / "silence.wav"), *pops], f"quarter_{n}.wav", ffmpeg)
 
 
 def make_hours(outdir: Path | None = None, ffmpeg: FFmpeg | None = None) -> None:
@@ -77,8 +90,7 @@ def make_hours(outdir: Path | None = None, ffmpeg: FFmpeg | None = None) -> None
             else:
                 cluster.extend([POP] * remaining_ + [SILENCE])
 
-        output = outdir / f"hour_{hour}.wav"
-        concat([SILENCE, CHIME, SILENCE, *cluster], output, outdir=outdir, runner=ffmpeg)
+        _concat_to(outdir, [SILENCE, CHIME, SILENCE, *cluster], f"hour_{hour}.wav", ffmpeg)
 
 
 def build_all(outdir: Path | None = None, ffmpeg: FFmpeg | None = None) -> None:

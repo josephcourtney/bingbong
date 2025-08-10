@@ -3,6 +3,7 @@ import shutil
 import subprocess  # noqa: S404
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import Protocol
 
 from . import audio, state
 from .audio import build_all
@@ -12,6 +13,12 @@ from .paths import ensure_outdir
 logger = logging.getLogger("bingbong.notify")
 
 HOURS_ON_CLOCK = 12
+
+
+class ChimePolicy(Protocol):
+    """Strategy interface for selecting which chime to play."""
+
+    def resolve(self, now: datetime, outdir: Path) -> Path: ...
 
 
 def nearest_quarter(minute: int) -> int:
@@ -28,6 +35,20 @@ def resolve_chime_path(hour: int, nearest: int, outdir: Path | None = None) -> P
         next_hour = (hour % HOURS_ON_CLOCK) + 1
         return outdir / f"hour_{next_hour}.wav"
     return outdir / f"quarter_{nearest}.wav"
+
+
+class QuarterHourPolicy:
+    """Default 'quarters + next-hour cluster' selection.
+
+    NOTE: If you want 3 PM → *three* pops (not next hour), flip the rule here
+    and update tests/README accordingly.
+    """
+
+    @staticmethod
+    def resolve(now: datetime, outdir: Path) -> Path:
+        hour = now.hour % 12 or 12
+        nearest = nearest_quarter(now.minute)
+        return resolve_chime_path(hour, nearest, outdir)
 
 
 def is_paused(outdir: Path, now: datetime) -> datetime | None:
@@ -97,17 +118,20 @@ def _ensure_chime_exists(chime_path: Path) -> bool:
     return True
 
 
-def notify_time(outdir: Path | None = None) -> None:
-    """Play the appropriate chime for the current time, respecting pauses and DND."""
+def notify_time(outdir: Path | None = None, policy: ChimePolicy | None = None) -> None:
+    """Play the appropriate chime for the current time, respecting pauses and DND.
+
+    "Strategy pattern": `policy` can be swapped for different selection rules.
+    """
     if outdir is None:
         outdir = ensure_outdir()
+    policy = policy or QuarterHourPolicy()
 
     now = datetime.now().astimezone()
 
     # 1) Manual pause
     if is_paused(outdir, now):
         return
-
     # 2) macOS Do Not Disturb
     if _in_dnd():
         return
@@ -115,7 +139,7 @@ def notify_time(outdir: Path | None = None) -> None:
     # 3) Determine which chime to play
     hour = now.hour % 12 or 12
     nearest = nearest_quarter(now.minute)
-    chime_path = resolve_chime_path(hour, nearest, outdir)
+    chime_path = policy.resolve(now, outdir)
 
     logger.debug("now=%s", now)
     logger.debug("hour=%s", hour)
