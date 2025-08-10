@@ -4,13 +4,17 @@ import shutil
 import subprocess
 from typing import TYPE_CHECKING
 
+import pytest
+
 if TYPE_CHECKING:
     from pathlib import Path
 
 
+@pytest.mark.slow
 def test_wav_assets_in_wheel(tmp_path: Path) -> None:
     uv_path = shutil.which("uv")
-    assert uv_path
+    if not uv_path:
+        pytest.skip("uv not installed; skipping wheel build test")
     subprocess.run([uv_path, "build", "--wheel", "--out-dir", str(tmp_path)], check=True)
     wheel = next(tmp_path.glob("bingbong-*.whl"))
     venv = tmp_path / "venv"

@@ -15,6 +15,12 @@ __all__ = [
 ]
 
 
+def merge_nested_if(a, b):
+    if a:
+        if b:
+            return c
+
+
 def get_silence_until() -> datetime | None:
     path = silence_path()
     if not path.exists():

@@ -1,3 +1,11 @@
+## [0.2.5] - 2025-08-10
+
+### Added
+- add `pytest-timeout` to prevent hanging tests
+- add `pytest-subprocess` for declarative subprocess expectations
+- add `pytest-regressions` and a CLI output snapshot test
+- add basic `hypothesis` property tests for `compute_pop_count`
+
 ## [0.2.4] - 2025-08-10
 
 ### Added

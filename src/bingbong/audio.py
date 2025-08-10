@@ -7,6 +7,7 @@ import time
 from pathlib import Path
 
 import click
+
 from bingbong.log import debug
 
 # macOS default player (we only ever execute a fixed binary with a file path)

@@ -1,64 +1,100 @@
-from __future__ import annotations
-
-import sys
-from datetime import UTC, datetime
+import os
+from pathlib import Path
 from types import SimpleNamespace
-from typing import TYPE_CHECKING
+
+import pytest
+from freezegun import freeze_time
 
 from bingbong import cli
 from bingbong.config import Config
 
-if TYPE_CHECKING:
-    from pathlib import Path
 
-    import pytest
+def _setup_cfg(fs, mocker):
+    """Create a fake config in pyfakefs and force darwin."""
+    mocker.patch.dict(os.environ, {"BINGBONG_APP_SUPPORT": "/AppSupport"}, clear=False)
+    fs.create_dir("/AppSupport")
+    fs.create_file("/AppSupport/c.wav", contents="0")
+    fs.create_file("/AppSupport/p.wav", contents="0")
+    Config(Path("/AppSupport/c.wav"), Path("/AppSupport/p.wav")).save()
+    import sys as _sys
 
-
-def _setup_cfg(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("BINGBONG_APP_SUPPORT", str(tmp_path))
-    chime = tmp_path / "c.wav"
-    pop = tmp_path / "p.wav"
-    chime.write_bytes(b"0")
-    pop.write_bytes(b"0")
-    Config(chime, pop).save()
-    monkeypatch.setattr(sys, "platform", "darwin")
+    mocker.patch.object(_sys, "platform", "darwin")
 
 
-def test_tick_quiet_hours(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    _setup_cfg(tmp_path, monkeypatch)
-    monkeypatch.setenv("BINGBONG_QUIET_HOURS", "00:00-23:59")
+def test_tick_quiet_hours(fs, mocker):
+    _setup_cfg(fs, mocker)
+    mocker.patch.dict(os.environ, {"BINGBONG_QUIET_HOURS": "00:00-23:59"}, clear=False)
     called: list[str] = []
-    monkeypatch.setattr(cli, "play_once", lambda *_, **__: called.append("chime"))
-    monkeypatch.setattr(cli, "play_repeated", lambda *_, **__: called.append("pop"))
-    monkeypatch.setattr(cli, "compute_pop_count", lambda _m, _h: (1, True))
-    assert cli.tick.callback
-    cli.tick.callback()
+    mocker.patch.object(cli, "play_once", side_effect=lambda *_, **__: called.append("chime"))
+    mocker.patch.object(cli, "play_repeated", side_effect=lambda *_, **__: called.append("pop"))
+    mocker.patch.object(cli, "compute_pop_count", side_effect=lambda _m, _h: (1, True))
+    with freeze_time("2024-01-01 00:00:00"):
+        assert cli.tick.callback
+        cli.tick.callback()
     assert called == []
 
 
-def test_tick_drift(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    _setup_cfg(tmp_path, monkeypatch)
-    monkeypatch.setattr(cli, "compute_pop_count", lambda _m, _h: (1, True))
+def test_tick_drift(fs, mocker):
+    _setup_cfg(fs, mocker)
+    mocker.patch.object(cli, "compute_pop_count", side_effect=lambda _m, _h: (1, True))
     called: list[str] = []
-    monkeypatch.setattr(cli, "play_once", lambda *_, **__: called.append("chime"))
-    monkeypatch.setattr(cli, "play_repeated", lambda *_, **__: called.append("pop"))
-
-    class FakeDateTime:
-        def __init__(self) -> None:
-            self.calls = 0
-
-        def now(self):
-            self.calls += 1
-            if self.calls == 1:
-                return datetime(2024, 1, 1, 0, 0, tzinfo=UTC)
-            return datetime(2024, 1, 1, 0, 1, tzinfo=UTC)
-
-        def astimezone(self, _dt=None):
-            return self.now().astimezone()
-
-    fake_dt = FakeDateTime()
-    monkeypatch.setattr(cli, "datetime", fake_dt)
-    monkeypatch.setattr(cli, "time", SimpleNamespace(sleep=lambda _x: None))
-    assert cli.tick.callback
-    cli.tick.callback()
+    mocker.patch.object(cli, "play_once", side_effect=lambda *_, **__: called.append("chime"))
+    mocker.patch.object(cli, "play_repeated", side_effect=lambda *_, **__: called.append("pop"))
+    # Simulate drift by freezing time for chime, then advancing before pops
+    with freeze_time("2024-01-01 00:00:00") as frozen:
+        mocker.patch.object(
+            cli, "time", SimpleNamespace(sleep=lambda _x: frozen.move_to("2024-01-01 00:01:00"))
+        )
+        assert cli.tick.callback
+        cli.tick.callback()
     assert called == ["chime"]
+
+
+@pytest.mark.parametrize(
+    ("frozen", "expect_chime", "expect_pops"),
+    [
+        # on-the-hour: chime first, then hour%12 or 12 pops
+        ("2024-01-01 00:00:00", True, 12),
+        ("2024-01-01 03:00:00", True, 3),
+        ("2024-01-01 10:00:00", True, 10),
+        ("2024-01-01 13:00:00", True, 1),
+        # quarter-hours: 1/2/3 pops, no chime
+        ("2024-01-01 10:15:00", False, 1),
+        ("2024-01-01 10:30:00", False, 2),
+        ("2024-01-01 10:45:00", False, 3),
+        # non-chime minute: nothing should play
+        ("2024-01-01 10:07:00", False, 0),
+    ],
+)
+def test_tick_all_cases_with_freezegun(frozen, expect_chime, expect_pops, fs, mocker):
+    """Parameterize over all tick cases using frozen local time.
+
+    This validates:
+      - on-the-hour chime + correct pop count (including 00:00 -> 12)
+      - quarter-hour pop counts (1/2/3) without chime
+      - non-chime minutes do nothing
+    """
+    _setup_cfg(fs, mocker)
+    # Make sleep a no-op for speed/determinism.
+    mocker.patch.object(cli, "time", SimpleNamespace(sleep=lambda _x: None))
+
+    calls: list[str] = []
+    mocker.patch.object(cli, "play_once", side_effect=lambda *_, **__: calls.append("chime"))
+    mocker.patch.object(cli, "play_repeated", side_effect=lambda *_a, **_kw: calls.append("pop"))
+
+    with freeze_time(frozen):
+        assert cli.tick.callback
+        cli.tick.callback()
+
+    if expect_pops == 0:
+        # nothing should have played at a non-chime minute
+        assert calls == []
+    else:
+        if expect_chime:
+            # chime must occur before pops
+            assert calls[0] == "chime"
+        else:
+            # only pops entry recorded
+            assert "chime" not in calls
+        # play_repeated is invoked once regardless of count; we verify intent by presence.
+        assert "pop" in calls

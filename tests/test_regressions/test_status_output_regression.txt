@@ -1,0 +1,6 @@
+Label: com.bingbong.chimes
+Player: /usr/bin/afplay
+Default plist path: /Users/testuser/Library/LaunchAgents/com.bingbong.chimes.plist
+Config: (not found)
+Plist not present ❌ (expected at /Users/testuser/Library/LaunchAgents/com.bingbong.chimes.plist)
+Silence: off

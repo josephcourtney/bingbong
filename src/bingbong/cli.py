@@ -21,8 +21,8 @@ from bingbong.core import (
     set_silence_for,
     silence_active,
 )
-from bingbong.service import service
 from bingbong.log import debug, set_verbose
+from bingbong.service import service
 
 if TYPE_CHECKING:
     from onginred.service import LaunchdService
@@ -49,10 +49,10 @@ def _require_darwin() -> None:
 @click.group(context_settings={"help_option_names": ["-h", "--help"]})
 @click.option("-v", "--verbose", is_flag=True, help="Enable verbose debug output")
 @click.pass_context
-def cli(ctx: click.Context, verbose: bool) -> None:
+def cli(ctx: click.Context, *, verbose: bool) -> None:  # noqa: ARG001
     """Bingbong - gentle time chimes for macOS."""
     # Initialize verbosity for this process.
-    set_verbose(verbose)
+    set_verbose(value=verbose)
     if verbose:
         debug("verbose logging enabled")
         debug(f"python={sys.executable}")
