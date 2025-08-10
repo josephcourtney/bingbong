@@ -1,6 +1,8 @@
 import json
+import shutil
 import subprocess
 import sys
+import tomllib
 from importlib.metadata import version
 from pathlib import Path
 
@@ -68,6 +70,26 @@ def test_cli_install_and_uninstall(monkeypatch):
     assert captured["throttle_interval"] == 7
     assert captured["crashed"] is True
     assert runner.invoke(main, ["uninstall"]).exit_code == 0
+
+
+def test_cli_install_backoff_conflict():
+    result = CliRunner().invoke(main, ["install", "--backoff", "5", "--successful-exit"])
+    assert result.exit_code != 0
+    assert "Cannot combine --backoff" in result.output
+
+
+def test_cli_install_backoff_message(monkeypatch):
+    captured: dict[str, object] = {}
+
+    def fake_install(cfg):
+        captured["cfg"] = cfg
+
+    monkeypatch.setattr("bingbong.launchctl.install", fake_install)
+    result = CliRunner().invoke(main, ["install", "--backoff", "7"])
+    assert result.exit_code == 0
+    assert "ThrottleInterval=7" in result.output
+    assert captured["cfg"].throttle_interval == 7
+    assert captured["cfg"].crashed is True
 
 
 def test_cli_install_handles_existing_file(monkeypatch, tmp_path):
@@ -148,6 +170,7 @@ def test_cli_status(monkeypatch, tmp_path):
         "subprocess.run",
         lambda *_, **__: subprocess.CompletedProcess([], 0, stdout="com.josephcourtney.bingbong", stderr=""),
     )
+    monkeypatch.setattr(shutil, "which", lambda _cmd: "/bin/launchctl")
     monkeypatch.setattr("bingbong.paths.config_path", lambda: tmp_path / "config.toml")
     result = CliRunner().invoke(main, ["status"])
     assert "Service is loaded" in result.output
@@ -185,6 +208,20 @@ def test_cli_logs_no_file(monkeypatch, tmp_path):
     assert "No log found" in result.output
 
 
+def test_cli_logs_rotate(monkeypatch, tmp_path):
+    out = tmp_path / "bingbong.out"
+    err = tmp_path / "bingbong.err"
+    out.write_text("abc")
+    err.write_text("abc")
+    monkeypatch.setattr("bingbong.commands.logs.STDOUT_LOG", out)
+    monkeypatch.setattr("bingbong.commands.logs.STDERR_LOG", err)
+    monkeypatch.setattr("bingbong.commands.logs.LOG_ROTATE_SIZE", 1)
+    result = CliRunner().invoke(main, ["logs"])
+    assert result.exit_code == 0
+    assert not out.exists()
+    assert (tmp_path / "bingbong.out.1").exists()
+
+
 def test_cli_build_missing_ffmpeg(monkeypatch):
     monkeypatch.setattr("bingbong.ffmpeg.ffmpeg_available", lambda: False)
     result = CliRunner().invoke(main, ["build"])
@@ -215,6 +252,7 @@ def test_cli_status_not_loaded(monkeypatch, tmp_path):
     monkeypatch.setattr(
         "subprocess.run", lambda *_, **__: subprocess.CompletedProcess([], 0, stdout="", stderr="")
     )
+    monkeypatch.setattr(shutil, "which", lambda _cmd: "/bin/launchctl")
     monkeypatch.setattr("bingbong.paths.config_path", lambda: tmp_path / "config.toml")
     result = CliRunner().invoke(main, ["status"])
     assert "NOT loaded" in result.output
@@ -351,3 +389,67 @@ def test_cli_doctor_failure_exit(monkeypatch, tmp_path):
     result = CliRunner().invoke(main, ["doctor"])
     assert "Woe! One or more checks failed" in result.output
     assert result.exit_code == 1
+
+
+def test_configure_happy_path(tmp_path, monkeypatch):
+    cfg_path = tmp_path / "config.toml"
+    monkeypatch.setattr("bingbong.cli.config_path", lambda: cfg_path)
+    responses = iter([
+        "*/15 * * * *",
+        "y",
+        "08:00-09:00",
+        "n",
+        "y",
+        "UTC",
+        "",
+    ])
+    monkeypatch.setattr("bingbong.cli.get_input", lambda _p: next(responses))
+    result = CliRunner().invoke(main, ["configure"])
+    assert result.exit_code == 0
+    data = tomllib.loads(cfg_path.read_text())
+    assert data["chime_schedule"] == "*/15 * * * *"
+    assert data["suppress_schedule"] == ["08:00-09:00"]
+    assert data["respect_dnd"] is True
+    assert data["timezone"] == "UTC"
+
+
+def test_configure_invalid_cron(tmp_path, monkeypatch):
+    cfg_path = tmp_path / "config.toml"
+    monkeypatch.setattr("bingbong.cli.config_path", lambda: cfg_path)
+    responses = iter(["bad cron"])
+    monkeypatch.setattr("bingbong.cli.get_input", lambda _p: next(responses))
+    result = CliRunner().invoke(main, ["configure"])
+    assert result.exit_code != 0
+    assert "Invalid cron" in result.output
+
+
+def test_configure_bad_timezone(tmp_path, monkeypatch):
+    cfg_path = tmp_path / "config.toml"
+    monkeypatch.setattr("bingbong.cli.config_path", lambda: cfg_path)
+    responses = iter([
+        "0 * * * *",
+        "n",
+        "y",
+        "Bad/Zone",
+        "",
+    ])
+    monkeypatch.setattr("bingbong.cli.get_input", lambda _p: next(responses))
+    result = CliRunner().invoke(main, ["configure"])
+    assert result.exit_code != 0
+    assert "Invalid timezone" in result.output
+
+
+def test_configure_invalid_paths(tmp_path, monkeypatch):
+    cfg_path = tmp_path / "config.toml"
+    monkeypatch.setattr("bingbong.cli.config_path", lambda: cfg_path)
+    responses = iter([
+        "0 * * * *",
+        "n",
+        "n",
+        "UTC",
+        str(tmp_path / "nope.wav"),
+    ])
+    monkeypatch.setattr("bingbong.cli.get_input", lambda _p: next(responses))
+    result = CliRunner().invoke(main, ["configure"])
+    assert result.exit_code != 0
+    assert "Invalid sound paths" in result.output

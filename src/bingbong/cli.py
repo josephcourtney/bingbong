@@ -66,7 +66,7 @@ def main(ctx: click.Context, *, dry_run: bool) -> None:
 @click.option("--backoff", type=int, help="Seconds to back off on failure")
 @click.pass_context
 @dryable("would install launchctl job")
-def install(
+def install(  # noqa: C901
     _ctx: click.Context,
     *,
     exit_timeout: int | None,
@@ -76,6 +76,10 @@ def install(
     backoff: int | None,
 ) -> None:
     """Install launchctl job."""
+    if backoff is not None and successful_exit is not None:
+        msg = "Cannot combine --backoff with --successful-exit/--no-successful-exit"
+        raise click.UsageError(msg)
+
     cfg = ChimeScheduler(
         exit_timeout=exit_timeout,
         throttle_interval=throttle_interval,
@@ -94,21 +98,21 @@ def install(
                 try:
                     path.unlink()
                 except OSError as err:
-                    click.echo(f"Failed to remove {path}: {err}")
+                    console.err(f"Failed to remove {path}: {err}")
                     if not click.confirm("Retry installation?", default=False):
                         return
                 else:
                     continue
             else:
-                click.echo("Installation aborted.")
+                console.warn("Installation aborted.")
                 return
         except Exception as e:  # noqa: BLE001 - show any error
             if click.confirm(f"Error: {e}. Retry?", default=False):
                 continue
-            click.echo("Installation aborted.")
+            console.warn("Installation aborted.")
             return
         break
-    click.echo("Installed launchctl job.")
+    console.ok(f"Installed launchctl job (ThrottleInterval={cfg.throttle_interval}, Crashed={cfg.crashed}).")
 
 
 @main.command()
@@ -117,7 +121,7 @@ def install(
 def uninstall(_ctx: click.Context) -> None:
     """Remove launchctl job."""
     launchctl.uninstall()
-    click.echo("Uninstalled launchctl job.")
+    console.ok("Uninstalled launchctl job.")
 
 
 @main.command()
@@ -127,12 +131,12 @@ def clean(ctx: click.Context) -> None:
     outdir = ensure_outdir()
     if outdir.exists():
         if ctx.obj.get("dry_run"):
-            click.echo(f"DRY RUN: would remove {outdir}")
+            console.ok(f"DRY RUN: would remove {outdir}")
         else:
             shutil.rmtree(outdir)
-            click.echo(f"Removed: {outdir}")
+            console.ok(f"Removed: {outdir}")
     else:
-        click.echo("No generated files found.")
+        console.warn("No generated files found.")
 
 
 @main.command()
@@ -141,8 +145,9 @@ def clean(ctx: click.Context) -> None:
 def chime(_ctx: click.Context) -> None:
     """Play the appropriate chime for the current time."""
     notify.on_wake()
+    notify.check_config_reload()
     notify.notify_time()
-    click.echo("Chime played.")
+    console.ok("Chime played.")
 
 
 @main.command()
@@ -153,7 +158,7 @@ def configure():
     click.echo("Enter cron expression for chime schedule:")
     cron_expr = get_input("> ").strip()
     if not croniter.is_valid(cron_expr):
-        click.echo("Invalid cron")
+        console.err("Invalid cron")
         raise SystemExit(1)
 
     suppress_list: list[str] = []
@@ -163,7 +168,7 @@ def configure():
             click.echo("Enter suppression window as HH:MM-HH:MM:")
             rng = get_input("> ").strip()
             if not re.match(r"^[0-2]\d:[0-5]\d-[0-2]\d:[0-5]\d$", rng):
-                click.echo("Invalid time range")
+                console.err("Invalid time range")
                 raise SystemExit(1)
             suppress_list.append(rng)
             click.echo("Add another suppression window? (y/n)")
@@ -178,14 +183,14 @@ def configure():
     try:
         ZoneInfo(tz)
     except ZoneInfoNotFoundError:
-        click.echo("Invalid timezone")
+        console.err("Invalid timezone")
         raise SystemExit(1) from None
 
     click.echo("Enter custom sound paths, comma-separated:")
     raw_paths = [p.strip() for p in get_input("> ").split(",") if p.strip()]
     invalid = [p for p in raw_paths if not Path(p).is_file()]
     if invalid:
-        click.echo(f"Invalid sound paths: {', '.join(invalid)}")
+        console.err(f"Invalid sound paths: {', '.join(invalid)}")
         raise SystemExit(1)
     paths = raw_paths
 
@@ -197,7 +202,7 @@ def configure():
         "custom_sounds": paths,
     }
     cfg_path.write_text(dumps(cfg))
-    click.echo(f"Wrote configuration to {cfg_path}")
+    console.ok(f"Wrote configuration to {cfg_path}")
 
 
 main.add_command(build_cmd)
