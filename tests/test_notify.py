@@ -117,9 +117,7 @@ def test_notify_missing_triggers_rebuild(monkeypatch, tmp_path):
         "bingbong.notify.build_all",
         lambda outdir=tmp_path: called.__setitem__("built", True) or audio.build_all(outdir),  # noqa: FBT003
     )
-    monkeypatch.setattr(
-        "bingbong.audio.play_file", lambda path: called.__setitem__("played", path)
-    )
+    monkeypatch.setattr("bingbong.audio.play_file", lambda path: called.__setitem__("played", path))
 
     notify.notify_time(outdir=tmp_path)
 
@@ -170,7 +168,9 @@ def test_notify_respects_manual_pause(tmp_path, monkeypatch):
 
     called = {"played": False}
     monkeypatch.setattr(
-        audio_mod, "play_file", lambda _path: called.__setitem__("played", True)  # noqa: FBT003
+        audio_mod,
+        "play_file",
+        lambda _path: called.__setitem__("played", True),  # noqa: FBT003
     )
 
     # Should return early, not call play_file
@@ -188,13 +188,13 @@ def test_notify_unpauses_after_expiry(tmp_path, monkeypatch):
     dummy.write_bytes(b"")  # exist
 
     # force resolve_chime_path to return our dummy
-    monkeypatch.setattr(
-        "bingbong.notify.resolve_chime_path", lambda _hour, _nearest, _outdir: dummy
-    )
+    monkeypatch.setattr("bingbong.notify.resolve_chime_path", lambda _hour, _nearest, _outdir: dummy)
 
     called = {"played": False}
     monkeypatch.setattr(
-        audio_mod, "play_file", lambda _path: called.__setitem__("played", True)  # noqa: FBT003
+        audio_mod,
+        "play_file",
+        lambda _path: called.__setitem__("played", True),  # noqa: FBT003
     )
 
     notify_time(outdir=tmp_path)
@@ -215,7 +215,9 @@ def test_notify_respects_dnd(tmp_path, monkeypatch):
 
     called = {"played": False}
     monkeypatch.setattr(
-        audio_mod, "play_file", lambda _path: called.__setitem__("played", True)  # noqa: FBT003
+        audio_mod,
+        "play_file",
+        lambda _path: called.__setitem__("played", True),  # noqa: FBT003
     )
 
     notify_time(outdir=tmp_path)
@@ -234,7 +236,9 @@ def test_dnd_probe_failure(tmp_path, monkeypatch, caplog):
     monkeypatch.setattr(subprocess, "run", fake_run)
     played = {"called": False}
     monkeypatch.setattr(
-        audio_mod, "play_file", lambda _p: played.__setitem__("called", True)  # noqa: FBT003
+        audio_mod,
+        "play_file",
+        lambda _p: played.__setitem__("called", True),  # noqa: FBT003
     )
 
     with caplog.at_level(logging.WARNING):
@@ -298,13 +302,13 @@ def test_bad_pause_file_is_deleted_and_played(tmp_path, monkeypatch):
     dummy = tmp_path / "quarter_1.wav"
     dummy.write_bytes(b"")
 
-    monkeypatch.setattr(
-        "bingbong.notify.resolve_chime_path", lambda _hour, _nearest, _outdir: dummy
-    )
+    monkeypatch.setattr("bingbong.notify.resolve_chime_path", lambda _hour, _nearest, _outdir: dummy)
 
     called = {"played": False}
     monkeypatch.setattr(
-        audio_mod, "play_file", lambda _path: called.__setitem__("played", True)  # noqa: FBT003
+        audio_mod,
+        "play_file",
+        lambda _path: called.__setitem__("played", True),  # noqa: FBT003
     )
 
     notify_time(outdir=tmp_path)

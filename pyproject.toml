@@ -1,7 +1,7 @@
 # =================================== project ====================================
 [project]
   name = "bingbong"
-  version = "0.1.0"
+version = "0.1.1"
   description = "bing, bong!"
   readme = "README.md"
   authors = [
