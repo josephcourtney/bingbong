@@ -31,7 +31,7 @@ def test_tick_quiet_hours(fs, mocker):
     with freeze_time("2024-01-01 00:00:00"):
         assert cli.tick.callback
         cli.tick.callback()
-    assert called == []
+    assert not called
 
 
 def test_tick_drift(fs, mocker):
@@ -88,7 +88,7 @@ def test_tick_all_cases_with_freezegun(frozen, expect_chime, expect_pops, fs, mo
 
     if expect_pops == 0:
         # nothing should have played at a non-chime minute
-        assert calls == []
+        assert not calls
     else:
         if expect_chime:
             # chime must occur before pops
