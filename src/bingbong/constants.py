@@ -4,3 +4,11 @@ QUARTER_3 = 45
 
 CHIME_DELAY = 0.25
 POP_DELAY = 0.18
+
+__all__ = [
+    "CHIME_DELAY",
+    "POP_DELAY",
+    "QUARTER_1",
+    "QUARTER_2",
+    "QUARTER_3",
+]
